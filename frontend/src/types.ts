@@ -20,14 +20,21 @@ export interface User {
 }
 
 export interface Book {
-  id: number;
+  book_id: number;
+  id: number;        // alias để không lỗi chỗ khác
+  isbn: string;
   title: string;
-  author: string;
+  author: number;
+  author_name: string;
+  category: number;
+  category_name: string;
+  publisher: number;
+  publisher_name: string;
   price: number;
-  description: string;
-  image_url: string;
-  category: string;
-  stock: number;
+  stock_quantity: number;
+  stock: number;     // alias
+  description?: string;
+  image_url?: string;
 }
 
 export interface Order {
