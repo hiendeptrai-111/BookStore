@@ -1,0 +1,5 @@
+{
+  "name": "Remix: BookStore - Nhà Sách Trực Tuyến",
+  "description": "Hệ thống bán sách trực tuyến với đầy đủ tính năng cho người dùng, có thêm một hộp chatbot tư vấn cho khách hàng ở dưới góc phải màn hình và quản trị viên.",
+  "requestFramePermissions": []
+}
