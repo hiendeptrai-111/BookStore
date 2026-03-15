@@ -1,14 +1,77 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, User as UserIcon, LogOut, BookOpen, Search } from 'lucide-react';
 import { useApp } from '../AppContext';
-import { formatCurrency } from '../types';
+import { api } from '../services/api';
 
 export const Navbar: React.FC = () => {
   const { user, cart, logout } = useApp();
   const navigate = useNavigate();
+  const [search, setSearch] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [allBooks, setAllBooks] = useState<any[]>([]);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Load tất cả sách 1 lần
+  useEffect(() => {
+    api.books.getAll()
+      .then(data => setAllBooks(data))
+      .catch(err => console.error(err));
+  }, []);
+
+  // Click ra ngoài thì đóng dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filter gợi ý khi gõ
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearch(value);
+
+    if (value.trim().length < 1) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const q = value.toLowerCase();
+    const filtered = allBooks.filter(b =>
+      (b.title || '').toLowerCase().includes(q) ||
+      (typeof b.author === 'string' ? b.author : '').toLowerCase().includes(q)
+    ).slice(0, 6);
+
+    setSuggestions(filtered);
+    setShowDropdown(true);
+  };
+
+  // Enter → sang trang danh sách filtered
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && search.trim()) {
+      setShowDropdown(false);
+      navigate(`/books?search=${encodeURIComponent(search.trim())}`);
+      setSearch('');
+    }
+    if (e.key === 'Escape') {
+      setShowDropdown(false);
+    }
+  };
+
+  // Click vào gợi ý → sang trang chi tiết sách
+  const handleSelect = (book: any) => {
+    setShowDropdown(false);
+    setSearch('');
+    navigate(`/books/${book.id}`);
+  };
 
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -19,14 +82,68 @@ export const Navbar: React.FC = () => {
             <span className="text-xl font-bold text-gray-900 tracking-tight">BookStore</span>
           </Link>
 
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
+          {/* Search với autocomplete dropdown */}
+          <div className="hidden md:flex flex-1 max-w-md mx-8" ref={wrapperRef}>
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input 
-                type="text" 
-                placeholder="Tìm kiếm sách..." 
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 z-10" />
+              <input
+                type="text"
+                placeholder="Tìm sách, tác giả... (Enter để xem tất cả)"
+                value={search}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
                 className="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-full text-sm focus:ring-2 focus:ring-indigo-500 transition-all"
               />
+
+              {/* Dropdown gợi ý sách */}
+              {showDropdown && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                  {suggestions.map((book) => (
+                    <button
+                      key={book.id}
+                      onMouseDown={() => handleSelect(book)}
+                      className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left"
+                    >
+                      <img
+                        src={book.image_url || `https://picsum.photos/seed/book${book.id}/400/600`}
+                        alt={book.title}
+                        className="w-8 h-11 object-cover rounded-lg flex-shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-900 truncate">{book.title}</p>
+                        <p className="text-xs text-gray-500 truncate">{book.author}</p>
+                      </div>
+                      <span className="text-xs font-bold text-indigo-600 flex-shrink-0">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(book.price)}
+                      </span>
+                    </button>
+                  ))}
+
+                  {/* Nút xem tất cả kết quả */}
+                  <button
+                    onMouseDown={() => {
+                      setShowDropdown(false);
+                      navigate(`/books?search=${encodeURIComponent(search.trim())}`);
+                      setSearch('');
+                    }}
+                    className="w-full px-4 py-3 bg-indigo-50 text-indigo-600 text-sm font-bold text-center hover:bg-indigo-100 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>Xem tất cả kết quả cho "{search}"</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Không tìm thấy */}
+              {showDropdown && suggestions.length === 0 && search.trim().length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                  <div className="px-4 py-6 text-center text-sm text-gray-400">
+                    Không tìm thấy kết quả cho "{search}"
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -34,7 +151,7 @@ export const Navbar: React.FC = () => {
             <Link to="/books" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
               Cửa hàng
             </Link>
-            
+
             <Link to="/cart" className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors">
               <ShoppingCart className="w-6 h-6" />
               {cartCount > 0 && (
@@ -50,7 +167,7 @@ export const Navbar: React.FC = () => {
                   <UserIcon className="w-5 h-5" />
                   <span className="hidden sm:inline">{user.name}</span>
                 </Link>
-                <button 
+                <button
                   onClick={() => { logout(); navigate('/'); }}
                   className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                 >

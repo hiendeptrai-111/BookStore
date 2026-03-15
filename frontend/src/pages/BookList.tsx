@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Search, Filter, ShoppingCart } from 'lucide-react';
 import { Book, formatCurrency } from '../types';
 import { useApp } from '../AppContext';
@@ -12,6 +12,14 @@ export const BookList: React.FC = () => {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const { addToCart } = useApp();
+  const location = useLocation();
+
+  // Đọc ?search= từ URL khi navigate từ Navbar
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get('search') || '';
+    setSearch(q);
+  }, [location.search]);
 
   useEffect(() => {
     api.books.getAll()
@@ -25,15 +33,23 @@ export const BookList: React.FC = () => {
   useEffect(() => {
     let result = books;
     if (search) {
-      result = result.filter(b => b.title.toLowerCase().includes(search.toLowerCase()) || b.author.toLowerCase().includes(search.toLowerCase()));
+      const q = search.toLowerCase();
+      result = result.filter(b =>
+        (b.title || '').toLowerCase().includes(q) ||
+        (typeof b.author === 'string' ? b.author : '').toLowerCase().includes(q)
+      );
     }
     if (category !== 'All') {
-      result = result.filter(b => b.category === category);
+      result = result.filter(b =>
+        (typeof b.category === 'string' ? b.category : '') === category
+      );
     }
     setFilteredBooks(result);
   }, [search, category, books]);
 
-  const categories = ['All', ...new Set(books.map(b => b.category))];
+  const categories = ['All', ...new Set(
+    books.map(b => typeof b.category === 'string' ? b.category : '').filter(Boolean)
+  )];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -46,9 +62,9 @@ export const BookList: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input 
-              type="text" 
-              placeholder="Tìm theo tên hoặc tác giả..." 
+            <input
+              type="text"
+              placeholder="Tìm theo tên hoặc tác giả..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 w-full sm:w-64"
@@ -56,7 +72,7 @@ export const BookList: React.FC = () => {
           </div>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <select 
+            <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="pl-10 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 appearance-none w-full"
@@ -71,7 +87,7 @@ export const BookList: React.FC = () => {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredBooks.map((book) => (
-          <motion.div 
+          <motion.div
             layout
             key={book.id}
             initial={{ opacity: 0 }}
@@ -80,9 +96,9 @@ export const BookList: React.FC = () => {
           >
             <Link to={`/books/${book.id}`}>
               <div className="aspect-[2/3] overflow-hidden bg-gray-100">
-                <img 
-                  src={book.image_url} 
-                  alt={book.title} 
+                <img
+                  src={book.image_url || `https://picsum.photos/seed/book${book.id}/400/600`}
+                  alt={book.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
@@ -98,7 +114,7 @@ export const BookList: React.FC = () => {
               <p className="text-xs text-gray-500">{book.author}</p>
               <div className="flex items-center justify-between pt-2">
                 <span className="font-bold text-indigo-600">{formatCurrency(book.price)}</span>
-                <button 
+                <button
                   onClick={() => addToCart(book)}
                   className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all"
                 >

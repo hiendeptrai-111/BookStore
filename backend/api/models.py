@@ -70,6 +70,8 @@ class Orders(models.Model):
     order_date = models.DateField()
     status = models.CharField(max_length=9)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    address = models.TextField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
 
     class Meta:
         managed = False

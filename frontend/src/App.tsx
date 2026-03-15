@@ -9,8 +9,8 @@ import { Cart } from './pages/Cart';
 import { Checkout } from './pages/Checkout';
 import { MyOrders } from './pages/MyOrders';
 import { Login, Register } from './pages/Auth';
-import { AdminDashboard, AdminBooks, AdminOrders, AdminUsers } from './pages/Admin';
-import { LayoutDashboard, Book as BookIcon, ShoppingBag, Users } from 'lucide-react';
+import { AdminDashboard, AdminBooks, AdminOrders, AdminUsers, AdminAuthors, AdminCategories } from './pages/Admin';
+import { LayoutDashboard, Book as BookIcon, ShoppingBag, Users, UserSquare, Tag } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Chatbot } from './components/Chatbot';
 
@@ -23,6 +23,8 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const menu = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Sách', path: '/admin/books', icon: BookIcon },
+    { name: 'Tác giả', path: '/admin/authors', icon: UserSquare },
+    { name: 'Danh mục', path: '/admin/categories', icon: Tag },
     { name: 'Đơn hàng', path: '/admin/orders', icon: ShoppingBag },
     { name: 'Người dùng', path: '/admin/users', icon: Users },
   ];
@@ -35,11 +37,13 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
         <nav className="flex-1 px-4 space-y-2">
           {menu.map(item => (
-            <Link 
+            <Link
               key={item.path}
               to={item.path}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
-                location.pathname === item.path ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-gray-500 hover:bg-gray-50'
+                location.pathname === item.path
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                  : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
               <item.icon className="w-5 h-5" />
@@ -86,6 +90,8 @@ export default function App() {
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout><AdminDashboard /></AdminLayout>} />
           <Route path="/admin/books" element={<AdminLayout><AdminBooks /></AdminLayout>} />
+          <Route path="/admin/authors" element={<AdminLayout><AdminAuthors /></AdminLayout>} />
+          <Route path="/admin/categories" element={<AdminLayout><AdminCategories /></AdminLayout>} />
           <Route path="/admin/orders" element={<AdminLayout><AdminOrders /></AdminLayout>} />
           <Route path="/admin/users" element={<AdminLayout><AdminUsers /></AdminLayout>} />
         </Routes>

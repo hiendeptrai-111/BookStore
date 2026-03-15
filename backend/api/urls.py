@@ -1,9 +1,35 @@
 from django.urls import path
-from .views import get_books, get_book, register, login_view
+from .views import (
+    get_books, get_book, register, login_view,
+    create_order, get_user_orders,
+    get_authors, get_categories, get_publishers,
+    create_book, update_book, delete_book,
+    get_admin_stats, get_admin_orders, update_order_status, get_admin_users,
+    create_author, update_author, delete_author,
+    create_category, update_category, delete_category,
+)
 
 urlpatterns = [
     path('books/', get_books),
     path('books/<int:book_id>/', get_book),
     path('auth/register/', register),
     path('auth/login/', login_view),
+    path('orders/', create_order),
+    path('orders/user/<int:user_id>/', get_user_orders),
+    path('admin/books/', create_book),
+    path('admin/books/<int:book_id>/', update_book),
+    path('admin/books/<int:book_id>/delete/', delete_book),
+    path('admin/stats/', get_admin_stats),
+    path('admin/orders/', get_admin_orders),
+    path('admin/orders/<int:order_id>/status/', update_order_status),
+    path('admin/users/', get_admin_users),
+    path('admin/authors/', get_authors),
+    path('admin/authors/create/', create_author),
+    path('admin/authors/<int:author_id>/', update_author),
+    path('admin/authors/<int:author_id>/delete/', delete_author),
+    path('admin/categories/', get_categories),
+    path('admin/categories/create/', create_category),
+    path('admin/categories/<int:category_id>/', update_category),
+    path('admin/categories/<int:category_id>/delete/', delete_category),
+    path('admin/publishers/', get_publishers),
 ]
