@@ -40,7 +40,7 @@ def register(request):
         return Response({'error': 'Vui lòng điền đầy đủ thông tin'}, status=status.HTTP_400_BAD_REQUEST)
 
     if Customers.objects.filter(email=email).exists():
-        return Response({'error': 'Email này đã được sử dụng'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Email này đã được tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
 
     customer = Customers.objects.create(
         full_name=name,
@@ -69,10 +69,10 @@ def login_view(request):
     try:
         customer = Customers.objects.get(email=email)
     except ObjectDoesNotExist:
-        return Response({'error': 'Email hoặc mật khẩu không đúng'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Email hoặc mật khẩu không chính xác'}, status=status.HTTP_400_BAD_REQUEST)
 
     if customer.password != hash_password(password):
-        return Response({'error': 'Email hoặc mật khẩu không đúng'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Email hoặc mật khẩu không chính xác'}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({
         'id': customer.customer_id,
