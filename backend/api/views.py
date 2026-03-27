@@ -7,8 +7,9 @@ from django.core.exceptions import ObjectDoesNotExist
 from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers
 from .serializers import BookSerializer
 import hashlib
-
-
+import time
+import threading
+from .chat_service import get_chat_reply   # ← thêm dòng import này ở đầu views.py
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -394,3 +395,126 @@ def delete_category(request, category_id):
         return Response({'error': 'Không tìm thấy danh mục'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': 'Không thể xóa danh mục đang có sách'}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+_request_times = []
+_lock = threading.Lock()
+RATE_LIMIT = 12        # max requests
+RATE_WINDOW = 60       # trong 60 giây
+ 
+def _check_rate_limit() -> bool:
+    """Trả về True nếu còn quota, False nếu đã hết."""
+    now = time.time()
+    with _lock:
+        # Xóa các request cũ hơn 60s
+        while _request_times and now - _request_times[0] > RATE_WINDOW:
+            _request_times.pop(0)
+        if len(_request_times) >= RATE_LIMIT:
+            return False
+        _request_times.append(now)
+        return True
+ 
+# ===== Cache sách (5 phút) =====
+_books_cache = {"data": None, "timestamp": 0}
+CACHE_TTL = 300  # 5 phút
+ 
+def _get_books_context():
+    now = time.time()
+    if _books_cache["data"] and now - _books_cache["timestamp"] < CACHE_TTL:
+        return _books_cache["data"]
+ 
+    books = Books.objects.select_related('author', 'category').all()
+    book_list = '\n'.join([
+        f'- Tên: "{b.title}" | Tác giả: {b.author.full_name} | '
+        f'Giá: {b.price:,.0f}đ | Còn: {b.stock_quantity} cuốn'
+        for b in books
+    ])
+    result = f"Danh sách sách:\n{book_list}" if book_list else "Chưa có sách nào."
+    _books_cache["data"] = result
+    _books_cache["timestamp"] = now
+    return result
+@api_view(['POST'])
+def chat(request):
+    message = request.data.get('message', '').strip()
+    if not message:
+        return Response({'error': 'Tin nhắn không được để trống'}, status=400)
+    reply = get_chat_reply(message)
+    return Response({'text': reply})
+# (giữ nguyên tất cả các hàm khác, chỉ xóa hàm chat() cũ)
+@api_view(['POST'])
+def chat(request):
+    message = request.data.get('message', '').strip()
+    if not message:
+        return Response({'error': 'Tin nhắn không được để trống'}, status=400)
+    
+    reply = get_chat_reply(message)
+    return Response({'text': reply})
+    message = request.data.get('message', '').strip().lower()
+
+    if not message:
+        return Response({'error': 'Tin nhắn không được để trống'}, status=400)
+
+    books = Books.objects.select_related('author', 'category').all()
+
+    # Tìm kiếm theo từ khóa
+    matched = books.filter(
+        models.Q(title__icontains=message) |
+        models.Q(author__full_name__icontains=message) |
+        models.Q(category__name__icontains=message) |
+        models.Q(description__icontains=message)
+    )[:5]
+
+    if matched.exists():
+        lines = []
+        for b in matched:
+            stock_text = f"{b.stock_quantity} cuốn" if b.stock_quantity > 0 else "Hết hàng"
+            lines.append(
+                f"📖 {b.title}\n"
+                f"   Tác giả: {b.author.full_name}\n"
+                f"   Thể loại: {b.category.name}\n"
+                f"   Giá: {b.price:,.0f}đ\n"
+                f"   Tình trạng: {stock_text}"
+            )
+        return Response({'text': f"Tìm thấy {matched.count()} sách:\n\n" + "\n\n".join(lines)})
+
+    if any(kw in message for kw in ['tất cả', 'danh sách', 'có sách gì', 'có những sách']):
+        all_books = books[:10]
+        lines = [f"📖 {b.title} - {b.author.full_name} - {b.price:,.0f}đ" for b in all_books]
+        total = books.count()
+        text = f"Cửa hàng có {total} đầu sách:\n\n" + "\n".join(lines)
+        if total > 10:
+            text += f"\n\n...và {total - 10} cuốn khác."
+        return Response({'text': text})
+
+    if any(kw in message for kw in ['rẻ nhất', 'rẻ', 'giá thấp']):
+        cheap = books.filter(stock_quantity__gt=0).order_by('price')[:5]
+        lines = [f"📖 {b.title} - {b.price:,.0f}đ" for b in cheap]
+        return Response({'text': "Sách giá rẻ nhất:\n\n" + "\n".join(lines)})
+
+    if any(kw in message for kw in ['mới nhất', 'mới', 'vừa ra']):
+        new_books = books.order_by('-book_id')[:5]
+        lines = [f"📖 {b.title} - {b.author.full_name} - {b.price:,.0f}đ" for b in new_books]
+        return Response({'text': "Sách mới nhất:\n\n" + "\n".join(lines)})
+
+    if any(kw in message for kw in ['thể loại', 'loại sách', 'chủ đề']):
+        cats = Categories.objects.all()
+        lines = [f"• {c.name} ({books.filter(category=c).count()} cuốn)" for c in cats]
+        return Response({'text': "Thể loại sách:\n\n" + "\n".join(lines)})
+
+    if any(kw in message for kw in ['tác giả', 'author']):
+        authors = Authors.objects.all()[:10]
+        lines = [f"• {a.full_name} ({books.filter(author=a).count()} cuốn)" for a in authors]
+        return Response({'text': "Tác giả:\n\n" + "\n".join(lines)})
+
+    if any(kw in message for kw in ['xin chào', 'hello', 'hi', 'chào', 'hey']):
+        total = books.count()
+        return Response({'text': f"Xin chào! 👋 Cửa hàng có {total} đầu sách.\n\nBạn có thể hỏi:\n• Tìm sách theo tên, tác giả, thể loại\n• Sách giá rẻ nhất\n• Sách mới nhất\n• Danh sách thể loại"})
+
+    return Response({'text': (
+        "Tôi chưa hiểu câu hỏi 😅\n\n"
+        "Bạn thử hỏi:\n"
+        "• Tên sách (vd: 'Doraemon')\n"
+        "• Tác giả (vd: 'Tô Hoài')\n"
+        "• Thể loại (vd: 'thiếu nhi')\n"
+        "• 'Sách rẻ nhất' hoặc 'Sách mới nhất'"
+    )})

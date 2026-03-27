@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    get_books, get_book, register, login_view,
+    chat, get_books, get_book, register, login_view,
     create_order, get_user_orders,
     get_authors, get_categories, get_publishers,
     create_book, update_book, delete_book,
@@ -32,4 +32,5 @@ urlpatterns = [
     path('admin/categories/<int:category_id>/', update_category),
     path('admin/categories/<int:category_id>/delete/', delete_category),
     path('admin/publishers/', get_publishers),
+    path('chat/', chat),  # thêm dòng này
 ]
