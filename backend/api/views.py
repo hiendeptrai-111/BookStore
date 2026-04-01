@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from django.db import models
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.validators import validate_email
 from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers
 from .serializers import BookSerializer
 import hashlib
@@ -142,6 +143,13 @@ def register(request):
         return err
 
     email = d['email'].strip()
+    
+    # Validate email format
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response({'error': 'Email không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+    
     if Customers.objects.filter(email=email).exists():
         return Response({'error': 'Email này đã được sử dụng'}, status=status.HTTP_400_BAD_REQUEST)
 

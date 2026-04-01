@@ -79,12 +79,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'bookstore',
-        'USER': 'root',
-        'PASSWORD': '060704',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "bookstore",
+        "USER": "root",
+        "PASSWORD": "",
+        "HOST": "localhost",
     }
 }
 
@@ -135,18 +134,18 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
-# Test database configuration
-import sys
-if 'test' in sys.argv:
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'bookstore',  # dùng thẳng DB thật
-        'USER': 'root',
-        'PASSWORD': '060704',
-        'HOST': 'localhost',
-        'PORT': '3306',
-        'TEST': {
-            'NAME': 'bookstore',  # không tạo DB mới, dùng DB hiện có
-            'CREATE_DB': False,   # không tạo DB mới
-        },
-    }
+# # Test database configuration
+# import sys
+# if 'test' in sys.argv:
+#     DATABASES['default'] = {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'bookstore',  # dùng thẳng DB thật
+#         'USER': 'root',
+#         'PASSWORD': 'root',
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#         'TEST': {
+#             'NAME': 'bookstore',  # không tạo DB mới, dùng DB hiện có
+#             'CREATE_DB': False,   # không tạo DB mới
+#         },
+#     }
