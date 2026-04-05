@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../AppContext';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
+import { setStoredTokens } from '../services/authStorage';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -15,8 +16,9 @@ export const Login: React.FC = () => {
     e.preventDefault();
     try {
       const data = await api.auth.login({ email, password });
-      setUser(data);
-      navigate(data.role === 'admin' ? '/admin' : '/');
+      setStoredTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+      setUser(data.user);
+      navigate(data.user.role === 'admin' ? '/admin' : '/');
     } catch (err: any) {
       setError(err.message);
     }
@@ -88,7 +90,8 @@ export const Register: React.FC = () => {
     e.preventDefault();
     try {
       const data = await api.auth.register({ email, password, name });
-      setUser(data);
+      setStoredTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+      setUser(data.user);
       navigate('/');
     } catch (err: any) {
       setError(err.message);

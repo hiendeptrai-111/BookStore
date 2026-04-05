@@ -29,7 +29,6 @@ export const Checkout: React.FC = () => {
     setLoading(true);
     try {
       const data = await api.orders.create({
-        user_id: user.id,
         items: cart,
         total_price: total,
         address: formData.address,

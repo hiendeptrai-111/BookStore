@@ -1,0 +1,550 @@
+<!-- BookStore Chatbot Setup Checklist -->
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BookStore Chatbot - Setup Checklist</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          Cantarell, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      h1 {
+        color: #234;
+        font-size: 2em;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        color: #666;
+        font-size: 1.1em;
+      }
+
+      .emoji {
+        font-size: 1.5em;
+        margin-right: 10px;
+      }
+
+      .checklist {
+        list-style: none;
+      }
+
+      .checklist-item {
+        display: flex;
+        align-items: center;
+        padding: 16px;
+        margin-bottom: 12px;
+        background: #f5f5f5;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .checklist-item:hover {
+        background: #efefef;
+        transform: translateX(4px);
+      }
+
+      .checklist-item input {
+        margin-right: 12px;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+      }
+
+      .checklist-item input:checked ~ label {
+        text-decoration: line-through;
+        color: #999;
+      }
+
+      .checklist-item label {
+        flex: 1;
+        cursor: pointer;
+        font-size: 1.05em;
+        color: #333;
+      }
+
+      .section {
+        margin-bottom: 30px;
+      }
+
+      .section-title {
+        font-size: 1.2em;
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #667eea;
+      }
+
+      .note {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 12px 16px;
+        margin: 12px 0;
+        border-radius: 4px;
+        font-size: 0.95em;
+      }
+
+      .success {
+        background: #d4edda;
+        border-left-color: #28a745;
+        color: #155724;
+      }
+
+      .error {
+        background: #f8d7da;
+        border-left-color: #dc3545;
+        color: #721c24;
+      }
+
+      .code-block {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 12px;
+        font-family: "Courier New", monospace;
+        overflow-x: auto;
+        margin: 12px 0;
+        font-size: 0.9em;
+      }
+
+      .link-button {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        margin: 4px 4px 4px 0;
+        transition: all 0.3s ease;
+      }
+
+      .link-button:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: #e9ecef;
+        border-radius: 3px;
+        margin: 20px 0;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+        color: #999;
+      }
+
+      .summary {
+        background: #f8f9fa;
+        border: 2px solid #667eea;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+      }
+
+      .summary-title {
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1><span class="emoji">🤖</span>BookStore Chatbot Setup</h1>
+        <p class="subtitle">Gemini AI + Database Integration</p>
+      </header>
+
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+
+      <!-- PHASE 1: PREREQUISITES -->
+      <div class="section">
+        <h2 class="section-title">
+          <span class="emoji">📋</span>Phase 1: Prerequisites
+        </h2>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check1" />
+            <label for="check1">Python 3.8+ installed</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check2" />
+            <label for="check2"
+              >Node.js 16+ installed (optional for frontend)</label
+            >
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check3" />
+            <label for="check3">Go to https://ai.google.dev</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check4" />
+            <label for="check4">Create Gemini API Key</label>
+          </li>
+        </ul>
+
+        <div class="note">
+          <strong>💡 Tip:</strong> Save your Gemini API Key in a safe place.
+          You'll need it in the next step.
+        </div>
+      </div>
+
+      <!-- PHASE 2: BACKEND SETUP -->
+      <div class="section">
+        <h2 class="section-title">
+          <span class="emoji">⚙️</span>Phase 2: Backend Setup
+        </h2>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check5" />
+            <label for="check5">Navigate to backend folder</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check6" />
+            <label for="check6">Create virtual environment</label>
+          </li>
+        </ul>
+
+        <div class="code-block">
+          cd backend<br />
+          python -m venv venv<br />
+          <br />
+          # Windows:<br />
+          venv\Scripts\activate<br />
+          <br />
+          # Linux/Mac:<br />
+          source venv/bin/activate
+        </div>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check7" />
+            <label for="check7">Install requirements.txt</label>
+          </li>
+        </ul>
+
+        <div class="code-block">pip install -r requirements.txt</div>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check8" />
+            <label for="check8">Copy .env.example → .env</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check9" />
+            <label for="check9">Add Gemini API Key to .env</label>
+          </li>
+        </ul>
+
+        <div class="code-block">
+          # backend/.env<br />
+          GEMINI_API_KEY=your_actual_api_key_here
+        </div>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check10" />
+            <label for="check10">Run migrations</label>
+          </li>
+        </ul>
+
+        <div class="code-block">python manage.py migrate</div>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check11" />
+            <label for="check11">Start Django server</label>
+          </li>
+        </ul>
+
+        <div class="code-block">
+          python manage.py runserver<br />
+          # Server at http://localhost:8000
+        </div>
+
+        <div class="note success">
+          <strong>✓ Backend is running!</strong> Server should be at
+          http://localhost:8000/api/
+        </div>
+      </div>
+
+      <!-- PHASE 3: FRONTEND SETUP -->
+      <div class="section">
+        <h2 class="section-title">
+          <span class="emoji">🎨</span>Phase 3: Frontend Setup
+        </h2>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check12" />
+            <label for="check12">Navigate to frontend folder</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check13" />
+            <label for="check13">Install npm packages</label>
+          </li>
+        </ul>
+
+        <div class="code-block">
+          cd frontend<br />
+          npm install
+        </div>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check14" />
+            <label for="check14">Copy .env.example → .env (if needed)</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check15" />
+            <label for="check15">Verify VITE_API_URL points to backend</label>
+          </li>
+        </ul>
+
+        <div class="code-block">
+          # .env<br />
+          VITE_API_URL=http://localhost:8000/api
+        </div>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check16" />
+            <label for="check16">Start development server</label>
+          </li>
+        </ul>
+
+        <div class="code-block">
+          npm run dev<br />
+          # Frontend at http://localhost:5173
+        </div>
+
+        <div class="note success">
+          <strong>✓ Frontend is running!</strong> Open http://localhost:5173 in
+          your browser.
+        </div>
+      </div>
+
+      <!-- PHASE 4: TESTING -->
+      <div class="section">
+        <h2 class="section-title">
+          <span class="emoji">🧪</span>Phase 4: Testing
+        </h2>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check17" />
+            <label for="check17">Open http://localhost:5173 in browser</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check18" />
+            <label for="check18">Find chat icon in bottom-right corner</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check19" />
+            <label for="check19">Click chat icon to open chatbot</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check20" />
+            <label for="check20">Send test message: "Xin chào"</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check21" />
+            <label for="check21"
+              >Verify bot responds with Gemini response</label
+            >
+          </li>
+        </ul>
+
+        <div class="note">
+          <strong>🧪 Test Messages:</strong><br />
+          - "Bạn có sách gì?" (List books)<br />
+          - "Sách của tác giả nào?" (By author)<br />
+          - "Sách giá rẻ nhất" (Cheapest)<br />
+          - "Cách đặt hàng?" (How to order)
+        </div>
+      </div>
+
+      <!-- PHASE 5: VERIFICATION -->
+      <div class="section">
+        <h2 class="section-title">
+          <span class="emoji">✅</span>Phase 5: Verification
+        </h2>
+
+        <div class="summary">
+          <div class="summary-title">Environment Variables Checklist:</div>
+          <ul style="list-style-position: inside; color: #555">
+            <li>✓ GEMINI_API_KEY set in backend/.env</li>
+            <li>✓ VITE_API_URL set in frontend/.env</li>
+            <li>✓ Backend server running on :8000</li>
+            <li>✓ Frontend dev server running on :5173</li>
+            <li>✓ No CORS errors in browser console</li>
+          </ul>
+        </div>
+
+        <ul class="checklist">
+          <li class="checklist-item">
+            <input type="checkbox" id="check22" />
+            <label for="check22">All environment variables configured</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check23" />
+            <label for="check23">Both servers running without errors</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check24" />
+            <label for="check24">Chatbot responds to messages</label>
+          </li>
+          <li class="checklist-item">
+            <input type="checkbox" id="check25" />
+            <label for="check25">Chat history is maintained</label>
+          </li>
+        </ul>
+      </div>
+
+      <!-- DOCUMENTATION -->
+      <div class="section">
+        <h2 class="section-title">
+          <span class="emoji">📚</span>Documentation Links
+        </h2>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+          <a href="CHATBOT_QUICKSTART.md" class="link-button"
+            >📖 Quick Start Guide</a
+          >
+          <a href="backend/CHATBOT_SETUP.md" class="link-button"
+            >⚙️ Backend Setup</a
+          >
+          <a href="ADVANCED_CUSTOMIZATION.md" class="link-button"
+            >🔧 Advanced Guide</a
+          >
+          <a href="https://ai.google.dev/docs" class="link-button"
+            >🔗 Gemini API Docs</a
+          >
+        </div>
+      </div>
+
+      <!-- TROUBLESHOOTING -->
+      <div class="section">
+        <h2 class="section-title">
+          <span class="emoji">🆘</span>Troubleshooting
+        </h2>
+
+        <div class="note error">
+          <strong>❌ "GEMINI_API_KEY not found"</strong><br />
+          Solution: Check .env file has GEMINI_API_KEY set
+        </div>
+
+        <div class="note error">
+          <strong>❌ "Connection refused localhost:8000"</strong><br />
+          Solution: Ensure Django server is running: python manage.py runserver
+        </div>
+
+        <div class="note error">
+          <strong>❌ "CORS error from frontend"</strong><br />
+          Solution: Backend already configured, check VITE_API_URL
+        </div>
+
+        <div class="note error">
+          <strong>❌ "Chat not responding"</strong><br />
+          Solution: Check API key validity, check browser console for errors
+        </div>
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="section">
+        <h2 class="section-title"><span class="emoji">🎉</span>What's Next?</h2>
+
+        <ul style="margin-left: 20px; color: #555">
+          <li>✅ Deploy to production (see deployment docs)</li>
+          <li>✅ Customize system prompt (see advanced guide)</li>
+          <li>✅ Add more database context</li>
+          <li>✅ Implement user analytics</li>
+          <li>✅ Setup caching with Redis</li>
+          <li>✅ Enable streaming responses</li>
+        </ul>
+      </div>
+
+      <footer>
+        <p><strong>BookStore Chatbot with Gemini AI</strong></p>
+        <p>Version 1.0 • Last Updated: 2024</p>
+      </footer>
+    </div>
+
+    <script>
+      const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+      // Load saved state from localStorage
+      checkboxes.forEach((checkbox) => {
+        const savedState = localStorage.getItem(checkbox.id);
+        if (savedState === "true") {
+          checkbox.checked = true;
+        }
+
+        // Save state when changed
+        checkbox.addEventListener("change", () => {
+          localStorage.setItem(checkbox.id, checkbox.checked);
+          updateProgress();
+        });
+      });
+
+      function updateProgress() {
+        const checked = document.querySelectorAll(
+          'input[type="checkbox"]:checked',
+        ).length;
+        const total = checkboxes.length;
+        const percentage = (checked / total) * 100;
+        document.getElementById("progressFill").style.width = percentage + "%";
+      }
+
+      // Initial progress update
+      updateProgress();
+    </script>
+  </body>
+</html>

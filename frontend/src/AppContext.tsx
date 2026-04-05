@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, CartItem, Book } from './types';
+import { clearAuthSession, getStoredUser, setStoredUser } from './services/authStorage';
 
 interface AppContextType {
   user: User | null;
@@ -16,8 +17,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
+    return getStoredUser();
   });
 
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -26,8 +26,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   useEffect(() => {
-    if (user) localStorage.setItem('user', JSON.stringify(user));
-    else localStorage.removeItem('user');
+    setStoredUser(user);
   }, [user]);
 
   useEffect(() => {
@@ -65,7 +64,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     setUser(null);
     clearCart();
+    clearAuthSession();
   };
+
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      setUser(null);
+      clearCart();
+    };
+
+    window.addEventListener('auth:logout', handleAuthLogout);
+    return () => window.removeEventListener('auth:logout', handleAuthLogout);
+  }, []);
 
   return (
     <AppContext.Provider value={{ 

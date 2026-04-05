@@ -237,10 +237,9 @@ def get_chat_reply(message: str) -> str:
     if _match(msg, ['bestseller']):
         # Lấy sách có trong nhiều đơn hàng nhất
         from .models import OrderItems
-        from django.db.models import Count
         top_books = (
             OrderItems.objects.values('book')
-            .annotate(total_sold=Count('id'))
+            .annotate(total_sold=django_models.Sum('quantity'))
             .order_by('-total_sold')[:5]
         )
         book_ids = [item['book'] for item in top_books]

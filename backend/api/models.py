@@ -63,6 +63,14 @@ class Customers(models.Model):
         managed = False
         db_table = 'CUSTOMERS'
 
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
 
 class Orders(models.Model):
     order_id = models.AutoField(primary_key=True)

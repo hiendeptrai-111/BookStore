@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    chat, get_books, get_book, register, login_view,
+    chat, get_books, get_book, register, login_view, refresh_token_view,
     create_order, get_user_orders,
     get_authors, get_categories, get_publishers,
     create_book, update_book, delete_book,
@@ -14,6 +14,7 @@ urlpatterns = [
     path('books/<int:book_id>/', get_book),
     path('auth/register/', register),
     path('auth/login/', login_view),
+    path('auth/refresh/', refresh_token_view),
     path('orders/', create_order),
     path('orders/user/<int:user_id>/', get_user_orders),
     path('admin/books/', create_book),

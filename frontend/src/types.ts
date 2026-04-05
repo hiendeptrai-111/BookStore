@@ -19,20 +19,29 @@ export interface User {
   role: "user" | "admin";
 }
 
+export interface AuthResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+}
+
 export interface Book {
   book_id: number;
-  id: number;        // alias để không lỗi chỗ khác
+  id: number;
   isbn: string;
   title: string;
-  author: number;
-  author_name: string;
-  category: number;
-  category_name: string;
-  publisher: number;
-  publisher_name: string;
+  author_id: number;
+  author: string;
+  author_name?: string;
+  category_id: number;
+  category: string;
+  category_name?: string;
+  publisher_id: number;
+  publisher?: string;
+  publisher_name?: string;
   price: number;
   stock_quantity: number;
-  stock: number;     // alias
+  stock: number;
   description?: string;
   image_url?: string;
 }
@@ -53,6 +62,6 @@ export interface CartItem extends Book {
 }
 
 export interface ChatMessage {
-  role: 'user' | 'model';
+  role: "user" | "model";
   text: string;
 }
