@@ -56,10 +56,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   // Real API Request
+  const token = localStorage.getItem('token');
+  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...authHeader,
       ...options.headers,
     },
   });
