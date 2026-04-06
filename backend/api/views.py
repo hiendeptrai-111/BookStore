@@ -6,6 +6,7 @@ from django.db import models
 from django.core.exceptions import ObjectDoesNotExist
 from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers
 from .serializers import BookSerializer
+from .auth_utils import generate_jwt_token, jwt_required
 import hashlib
 
 
@@ -49,12 +50,14 @@ def register(request):
         role=0,
         created_at=timezone.now().date()
     )
+    token = generate_jwt_token(customer)
 
     return Response({
         'id': customer.customer_id,
         'email': customer.email,
         'name': customer.full_name,
-        'role': 'admin' if customer.role == 1 else 'user'
+        'role': 'admin' if customer.role == 1 else 'user',
+        'token': token,
     }, status=status.HTTP_201_CREATED)
 
 
@@ -74,29 +77,28 @@ def login_view(request):
     if customer.password != hash_password(password):
         return Response({'error': 'Email hoặc mật khẩu không đúng'}, status=status.HTTP_400_BAD_REQUEST)
 
+    token = generate_jwt_token(customer)
     return Response({
         'id': customer.customer_id,
         'email': customer.email,
         'name': customer.full_name,
-        'role': 'admin' if customer.role == 1 else 'user'
+        'role': 'admin' if customer.role == 1 else 'user',
+        'token': token,
     })
 
 
 @api_view(['POST'])
+@jwt_required()
 def create_order(request):
-    user_id = request.data.get('user_id')
     items = request.data.get('items', [])
     total_price = request.data.get('total_price', 0)
     address = request.data.get('address', '')
     phone = request.data.get('phone', '')
 
-    if not user_id or not items:
+    if not items:
         return Response({'error': 'Thiếu thông tin đặt hàng'}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        customer = Customers.objects.get(customer_id=user_id)
-    except ObjectDoesNotExist:
-        return Response({'error': 'Người dùng không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+    customer = request.customer
 
     order = Orders.objects.create(
         customer=customer,
@@ -127,7 +129,10 @@ def create_order(request):
 
 
 @api_view(['GET'])
+@jwt_required()
 def get_user_orders(request, user_id):
+    if request.customer.role != 1 and request.customer.customer_id != user_id:
+        return Response({'error': 'Không có quyền truy cập'}, status=status.HTTP_403_FORBIDDEN)
     try:
         orders = Orders.objects.filter(customer_id=user_id).order_by('-order_date')
         result = []
@@ -170,6 +175,7 @@ def get_publishers(request):
 
 
 @api_view(['POST'])
+@jwt_required(admin_required=True)
 def create_book(request):
     try:
         title = request.data.get('title', '').strip()
@@ -206,6 +212,7 @@ def create_book(request):
 
 
 @api_view(['PUT'])
+@jwt_required(admin_required=True)
 def update_book(request, book_id):
     try:
         book = Books.objects.get(book_id=book_id)
@@ -234,6 +241,7 @@ def update_book(request, book_id):
 
 
 @api_view(['DELETE'])
+@jwt_required(admin_required=True)
 def delete_book(request, book_id):
     try:
         book = Books.objects.get(book_id=book_id)
@@ -244,6 +252,7 @@ def delete_book(request, book_id):
 
 
 @api_view(['GET'])
+@jwt_required(admin_required=True)
 def get_admin_stats(request):
     books_count = Books.objects.count()
     orders_count = Orders.objects.count()
@@ -280,6 +289,7 @@ def get_admin_stats(request):
     })
 
 @api_view(['GET'])
+@jwt_required(admin_required=True)
 def get_admin_orders(request):
     orders = Orders.objects.select_related('customer').order_by('-order_date')
     result = []
@@ -297,6 +307,7 @@ def get_admin_orders(request):
 
 
 @api_view(['PATCH'])
+@jwt_required(admin_required=True)
 def update_order_status(request, order_id):
     try:
         order = Orders.objects.get(order_id=order_id)
@@ -308,6 +319,7 @@ def update_order_status(request, order_id):
 
 
 @api_view(['GET'])
+@jwt_required(admin_required=True)
 def get_admin_users(request):
     users = Customers.objects.all()
     result = [{
@@ -321,6 +333,7 @@ def get_admin_users(request):
 
 # ===== AUTHORS =====
 @api_view(['POST'])
+@jwt_required(admin_required=True)
 def create_author(request):
     full_name = request.data.get('full_name', '').strip()
     bio = request.data.get('bio', '')
@@ -334,6 +347,7 @@ def create_author(request):
 
 
 @api_view(['PUT'])
+@jwt_required(admin_required=True)
 def update_author(request, author_id):
     try:
         author = Authors.objects.get(author_id=author_id)
@@ -350,6 +364,7 @@ def update_author(request, author_id):
 
 
 @api_view(['DELETE'])
+@jwt_required(admin_required=True)
 def delete_author(request, author_id):
     try:
         author = Authors.objects.get(author_id=author_id)
@@ -363,6 +378,7 @@ def delete_author(request, author_id):
 
 # ===== CATEGORIES =====
 @api_view(['POST'])
+@jwt_required(admin_required=True)
 def create_category(request):
     name = request.data.get('name', '').strip()
     if not name:
@@ -373,6 +389,7 @@ def create_category(request):
 
 
 @api_view(['PUT'])
+@jwt_required(admin_required=True)
 def update_category(request, category_id):
     try:
         category = Categories.objects.get(category_id=category_id)
@@ -385,6 +402,7 @@ def update_category(request, category_id):
 
 
 @api_view(['DELETE'])
+@jwt_required(admin_required=True)
 def delete_category(request, category_id):
     try:
         category = Categories.objects.get(category_id=category_id)

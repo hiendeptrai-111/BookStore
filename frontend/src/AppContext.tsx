@@ -3,7 +3,9 @@ import { User, CartItem, Book } from './types';
 
 interface AppContextType {
   user: User | null;
+  token: string | null;
   setUser: (user: User | null) => void;
+  setToken: (token: string | null) => void;
   cart: CartItem[];
   addToCart: (book: Book) => void;
   removeFromCart: (bookId: number) => void;
@@ -19,6 +21,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : null;
   });
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem('token');
+  });
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem('cart');
@@ -29,6 +34,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (user) localStorage.setItem('user', JSON.stringify(user));
     else localStorage.removeItem('user');
   }, [user]);
+
+  useEffect(() => {
+    if (token) localStorage.setItem('token', token);
+    else localStorage.removeItem('token');
+  }, [token]);
 
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cart));
@@ -64,12 +74,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = () => {
     setUser(null);
+    setToken(null);
     clearCart();
   };
 
   return (
     <AppContext.Provider value={{ 
-      user, setUser, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, logout 
+      user, token, setUser, setToken, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, logout 
     }}>
       {children}
     </AppContext.Provider>

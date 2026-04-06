@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useApp } from '../AppContext';
 import { LayoutDashboard, Book, ShoppingBag, Users, TrendingUp, Package, DollarSign, UserCheck } from 'lucide-react';
 import { formatCurrency } from '../types';
 import { api } from '../services/api';
@@ -145,6 +146,8 @@ export const AdminDashboard: React.FC = () => {
 };
 
 export const AdminBooks: React.FC = () => {
+  const { token } = useApp();
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
   const [books, setBooks] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [currentBook, setCurrentBook] = useState<any>(null);
@@ -155,15 +158,15 @@ export const AdminBooks: React.FC = () => {
 
   useEffect(() => {
     api.books.getAll().then(setBooks).catch(console.error);
-    fetch(`${import.meta.env.VITE_API_URL}/admin/authors/`).then(r => r.json()).then(setAuthors);
-    fetch(`${import.meta.env.VITE_API_URL}/admin/categories/`).then(r => r.json()).then(setCategories);
-    fetch(`${import.meta.env.VITE_API_URL}/admin/publishers/`).then(r => r.json()).then(setPublishers);
+    fetch(`${import.meta.env.VITE_API_URL}/admin/authors/`, { headers: authHeaders }).then(r => r.json()).then(setAuthors);
+    fetch(`${import.meta.env.VITE_API_URL}/admin/categories/`, { headers: authHeaders }).then(r => r.json()).then(setCategories);
+    fetch(`${import.meta.env.VITE_API_URL}/admin/publishers/`, { headers: authHeaders }).then(r => r.json()).then(setPublishers);
   }, []);
 
   const handleDelete = async (id: number) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa sách này?')) {
       try {
-        await fetch(`${import.meta.env.VITE_API_URL}/admin/books/${id}/delete/`, { method: 'DELETE' });
+        await fetch(`${import.meta.env.VITE_API_URL}/admin/books/${id}/delete/`, { method: 'DELETE', headers: authHeaders });
         setBooks(books.filter(b => b.id !== id));
       } catch (err) { console.error(err); }
     }
@@ -192,7 +195,7 @@ export const AdminBooks: React.FC = () => {
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
@@ -434,7 +437,7 @@ export const AdminAuthors: React.FC = () => {
   const [error, setError] = useState('');
   const API = import.meta.env.VITE_API_URL;
 
-  const load = () => fetch(`${API}/admin/authors/`).then(r => r.json()).then(setAuthors);
+  const load = () => fetch(`${API}/admin/authors/`, { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } }).then(r => r.json()).then(setAuthors);
   useEffect(() => { load(); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -447,7 +450,7 @@ export const AdminAuthors: React.FC = () => {
       const method = current.author_id ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         body: JSON.stringify(current)
       });
       const data = await res.json();
@@ -462,7 +465,7 @@ export const AdminAuthors: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Xóa tác giả này?')) return;
     try {
-      const res = await fetch(`${API}/admin/authors/${id}/delete/`, { method: 'DELETE' });
+      const res = await fetch(`${API}/admin/authors/${id}/delete/`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       load();
@@ -548,7 +551,7 @@ export const AdminCategories: React.FC = () => {
   const [error, setError] = useState('');
   const API = import.meta.env.VITE_API_URL;
 
-  const load = () => fetch(`${API}/admin/categories/`).then(r => r.json()).then(setCategories);
+  const load = () => fetch(`${API}/admin/categories/`, { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } }).then(r => r.json()).then(setCategories);
   useEffect(() => { load(); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -561,7 +564,7 @@ export const AdminCategories: React.FC = () => {
       const method = current.category_id ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
         body: JSON.stringify(current)
       });
       const data = await res.json();
@@ -576,7 +579,7 @@ export const AdminCategories: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Xóa danh mục này?')) return;
     try {
-      const res = await fetch(`${API}/admin/categories/${id}/delete/`, { method: 'DELETE' });
+      const res = await fetch(`${API}/admin/categories/${id}/delete/`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       load();
