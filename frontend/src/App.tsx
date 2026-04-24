@@ -9,8 +9,8 @@ import { Cart } from './pages/Cart';
 import { Checkout } from './pages/Checkout';
 import { MyOrders } from './pages/MyOrders';
 import { Login, Register } from './pages/Auth';
-import { AdminDashboard, AdminBooks, AdminOrders, AdminUsers, AdminAuthors, AdminCategories, AdminCoupons } from './pages/Admin';
-import { LayoutDashboard, Book as BookIcon, ShoppingBag, Users, UserSquare, Tag, Ticket } from 'lucide-react';
+import { AdminDashboard, AdminBooks, AdminOrders, AdminUsers, AdminAuthors, AdminCategories, AdminCoupons, AdminReviews } from './pages/Admin';
+import { LayoutDashboard, Book as BookIcon, ShoppingBag, Users, UserSquare, Tag, Ticket, Star } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Chatbot } from './components/Chatbot';
 
@@ -28,6 +28,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Đơn hàng', path: '/admin/orders', icon: ShoppingBag },
     { name: 'Người dùng', path: '/admin/users', icon: Users },
     { name: 'Mã giảm giá', path: '/admin/coupons', icon: Ticket },
+    { name: 'Đánh giá', path: '/admin/reviews', icon: Star },
   ];
 
   return (
@@ -96,6 +97,7 @@ export default function App() {
           <Route path="/admin/orders" element={<AdminLayout><AdminOrders /></AdminLayout>} />
           <Route path="/admin/users" element={<AdminLayout><AdminUsers /></AdminLayout>} />
           <Route path="/admin/coupons" element={<AdminLayout><AdminCoupons /></AdminLayout>} />
+          <Route path="/admin/reviews" element={<AdminLayout><AdminReviews /></AdminLayout>} />
         </Routes>
         <Chatbot />
       </Router>

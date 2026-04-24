@@ -131,6 +131,21 @@ class BlacklistedToken(models.Model):
         cls.objects.filter(expires_at__lt=timezone.now()).delete()
 
 
+class Review(models.Model):
+    book = models.ForeignKey(Books, on_delete=models.CASCADE, related_name='reviews')
+    customer = models.ForeignKey(Customers, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.IntegerField()
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    admin_reply = models.TextField(blank=True, null=True)
+    admin_reply_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'api_review'
+        ordering = ['-created_at']
+        unique_together = [('book', 'customer')]
+
+
 class DiscountCode(models.Model):
     PERCENT = 'percent'
     FIXED = 'fixed'

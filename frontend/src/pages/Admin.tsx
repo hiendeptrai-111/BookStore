@@ -841,3 +841,82 @@ export const AdminCategories: React.FC = () => {
     </div>
   );
 };
+export const AdminReviews: React.FC = () => {
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [replyText, setReplyText] = useState<Record<number, string>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.reviews.adminGetAll().then(data => { setReviews(data); setLoading(false); });
+  }, []);
+
+  const handleDelete = async (id: number) => {
+    await api.reviews.delete(id);
+    setReviews(prev => prev.filter(r => r.id !== id));
+  };
+
+  const handleReply = async (id: number) => {
+    const reply = replyText[id]?.trim();
+    if (!reply) return;
+    await api.reviews.adminReply(id, reply);
+    setReviews(prev => prev.map(r => r.id === id ? { ...r, admin_reply: reply } : r));
+    setReplyText(prev => ({ ...prev, [id]: '' }));
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400">Đang tải...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900">Quản lý đánh giá</h1>
+          <p className="text-gray-500 mt-1">Tất cả đánh giá từ khách hàng</p>
+        </div>
+        <span className="bg-indigo-100 text-indigo-700 text-sm font-bold px-4 py-2 rounded-full">{reviews.length} đánh giá</span>
+      </div>
+
+      {reviews.length === 0 ? (
+        <p className="text-gray-400 text-center py-12">Chưa có đánh giá nào.</p>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map(r => (
+            <div key={r.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-bold text-gray-800">{r.customer_name}</span>
+                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-500">{'⭐'.repeat(r.rating)}</span>
+                    <span className="text-xs text-indigo-600 font-medium">{r.book_title}</span>
+                    <span className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  <p className="text-gray-700 text-sm">{r.comment}</p>
+                  {r.admin_reply && (
+                    <div className="pl-4 border-l-2 border-indigo-200 bg-indigo-50 rounded-r-xl py-2 pr-3">
+                      <p className="text-xs font-bold text-indigo-600 mb-1">Phản hồi của bạn</p>
+                      <p className="text-sm text-gray-700">{r.admin_reply}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <input
+                      value={replyText[r.id] ?? ''}
+                      onChange={e => setReplyText(prev => ({ ...prev, [r.id]: e.target.value }))}
+                      placeholder={r.admin_reply ? 'Cập nhật phản hồi...' : 'Viết phản hồi...'}
+                      className="flex-1 text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                    <button
+                      onClick={() => handleReply(r.id)}
+                      className="text-sm px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700"
+                    >
+                      Gửi
+                    </button>
+                  </div>
+                </div>
+                <button onClick={() => handleDelete(r.id)} className="text-red-400 hover:text-red-600 text-sm font-bold shrink-0">Xóa</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};

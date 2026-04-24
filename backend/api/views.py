@@ -4,7 +4,7 @@ from rest_framework import status
 from django.utils import timezone
 from django.db import models
 from django.core.exceptions import ObjectDoesNotExist
-from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers, DiscountCode
+from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers, DiscountCode, Review
 from .serializers import BookSerializer
 from .auth_utils import create_access_token, require_admin, require_auth
 import hashlib
@@ -609,6 +609,130 @@ def _get_books_context():
     _books_cache["data"] = result
     _books_cache["timestamp"] = now
     return result
+@api_view(['GET'])
+def get_reviews(request, book_id):
+    try:
+        book = Books.objects.get(pk=book_id)
+    except ObjectDoesNotExist:
+        return Response({'error': 'Không tìm thấy sách'}, status=status.HTTP_404_NOT_FOUND)
+
+    reviews = Review.objects.filter(book=book).select_related('customer')
+    data = []
+    for r in reviews:
+        data.append({
+            'id': r.id,
+            'customer_name': r.customer.full_name,
+            'customer_id': r.customer.customer_id,
+            'rating': r.rating,
+            'comment': r.comment,
+            'created_at': r.created_at.isoformat(),
+            'admin_reply': r.admin_reply,
+            'admin_reply_at': r.admin_reply_at.isoformat() if r.admin_reply_at else None,
+        })
+
+    avg = book.reviews.aggregate(avg=models.Avg('rating'))['avg']
+    return Response({'reviews': data, 'avg_rating': round(avg, 1) if avg else None, 'count': len(data)})
+
+
+@api_view(['POST'])
+def create_review(request, book_id):
+    customer_id, _, err = require_auth(request)
+    if err:
+        return err
+
+    rating = request.data.get('rating')
+    comment = request.data.get('comment', '').strip()
+    if not rating or not comment:
+        return Response({'error': 'Vui lòng nhập đánh giá và nội dung'}, status=status.HTTP_400_BAD_REQUEST)
+    if not (1 <= int(rating) <= 5):
+        return Response({'error': 'Điểm đánh giá phải từ 1 đến 5'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        book = Books.objects.get(pk=book_id)
+        customer = Customers.objects.get(pk=customer_id)
+    except ObjectDoesNotExist:
+        return Response({'error': 'Không tìm thấy sách hoặc người dùng'}, status=status.HTTP_404_NOT_FOUND)
+
+    has_ordered = OrderItems.objects.filter(
+        order__customer=customer,
+        book=book,
+        order__status__in=['delivered', 'shipping', 'processing', 'pending'],
+    ).exists()
+    if not has_ordered:
+        return Response({'error': 'Bạn cần mua sách này trước khi đánh giá'}, status=status.HTTP_403_FORBIDDEN)
+
+    review, created = Review.objects.get_or_create(
+        book=book,
+        customer=customer,
+        defaults={'rating': int(rating), 'comment': comment},
+    )
+    if not created:
+        review.rating = int(rating)
+        review.comment = comment
+        review.save()
+
+    return Response({'success': True, 'id': review.id}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+def delete_review(request, review_id):
+    customer_id, role, err = require_auth(request)
+    if err:
+        return err
+    try:
+        review = Review.objects.get(pk=review_id)
+    except ObjectDoesNotExist:
+        return Response({'error': 'Không tìm thấy đánh giá'}, status=status.HTTP_404_NOT_FOUND)
+
+    if role != 'admin' and review.customer.customer_id != customer_id:
+        return Response({'error': 'Bạn không có quyền xóa đánh giá này'}, status=status.HTTP_403_FORBIDDEN)
+
+    review.delete()
+    return Response({'success': True})
+
+
+@api_view(['PATCH'])
+def admin_reply_review(request, review_id):
+    _, err = require_admin(request)
+    if err:
+        return err
+    try:
+        review = Review.objects.get(pk=review_id)
+    except ObjectDoesNotExist:
+        return Response({'error': 'Không tìm thấy đánh giá'}, status=status.HTTP_404_NOT_FOUND)
+
+    reply = request.data.get('reply', '').strip()
+    if not reply:
+        return Response({'error': 'Nội dung phản hồi không được để trống'}, status=status.HTTP_400_BAD_REQUEST)
+
+    review.admin_reply = reply
+    review.admin_reply_at = timezone.now()
+    review.save()
+    return Response({'success': True})
+
+
+@api_view(['GET'])
+def get_admin_reviews(request):
+    _, err = require_admin(request)
+    if err:
+        return err
+
+    reviews = Review.objects.select_related('customer', 'book').all()
+    data = [{
+        'id': r.id,
+        'book_id': r.book.book_id,
+        'book_title': r.book.title,
+        'customer_name': r.customer.full_name,
+        'customer_id': r.customer.customer_id,
+        'rating': r.rating,
+        'comment': r.comment,
+        'created_at': r.created_at.isoformat(),
+        'admin_reply': r.admin_reply,
+        'admin_reply_at': r.admin_reply_at.isoformat() if r.admin_reply_at else None,
+    } for r in reviews]
+    return Response(data)
+
+
 @api_view(['POST'])
 def chat(request):
     message = request.data.get('message', '').strip()

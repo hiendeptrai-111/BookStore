@@ -8,6 +8,7 @@ from .views import (
     create_author, update_author, delete_author,
     create_category, update_category, delete_category,
     validate_coupon, get_admin_coupons, create_coupon, update_coupon, delete_coupon,
+    get_reviews, create_review, delete_review, admin_reply_review, get_admin_reviews,
 )
 
 urlpatterns = [
@@ -39,4 +40,9 @@ urlpatterns = [
     path('admin/coupons/<int:coupon_id>/', update_coupon),
     path('admin/coupons/<int:coupon_id>/delete/', delete_coupon),
     path('chat/', chat),
+    path('books/<int:book_id>/reviews/', get_reviews),
+    path('books/<int:book_id>/reviews/create/', create_review),
+    path('reviews/<int:review_id>/delete/', delete_review),
+    path('admin/reviews/', get_admin_reviews),
+    path('admin/reviews/<int:review_id>/reply/', admin_reply_review),
 ]

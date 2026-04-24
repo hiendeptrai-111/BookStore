@@ -12,6 +12,19 @@ export function formatCurrency(amount: number) {
   }).format(amount);
 }
 
+export interface Review {
+  id: number;
+  customer_name: string;
+  customer_id: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+  admin_reply: string | null;
+  admin_reply_at: string | null;
+  book_id?: number;
+  book_title?: string;
+}
+
 export interface User {
   id: number;
   email: string;

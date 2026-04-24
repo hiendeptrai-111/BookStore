@@ -1,4 +1,4 @@
-import { Book, User, Order, DiscountCode } from '../types';
+import { Book, User, Order, DiscountCode, Review } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const IS_MOCK = false;
@@ -57,15 +57,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   // Real API Request
   const token = localStorage.getItem('token');
-  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeader,
-      ...options.headers,
-    },
+    headers: { ...headers, ...(options.headers as Record<string, string> | undefined) },
   });
 
   const data = await response.json();
@@ -140,6 +137,29 @@ export const api = {
   admin: {
     getStats: () => request<any>('/admin/stats/'),
     getUsers: () => request<User[]>('/admin/users/'),
+  },
+
+  // --- ĐÁNH GIÁ ---
+  reviews: {
+    getByBook: (bookId: number | string) =>
+      request<{ reviews: Review[]; avg_rating: number | null; count: number }>(`/books/${bookId}/reviews/`),
+
+    create: (bookId: number | string, data: { rating: number; comment: string }) =>
+      request<{ success: boolean; id: number }>(`/books/${bookId}/reviews/create/`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (reviewId: number) =>
+      request<{ success: boolean }>(`/reviews/${reviewId}/delete/`, { method: 'DELETE' }),
+
+    adminGetAll: () => request<Review[]>('/admin/reviews/'),
+
+    adminReply: (reviewId: number, reply: string) =>
+      request<{ success: boolean }>(`/admin/reviews/${reviewId}/reply/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reply }),
+      }),
   },
 
   // --- MÃ GIẢM GIÁ ---
