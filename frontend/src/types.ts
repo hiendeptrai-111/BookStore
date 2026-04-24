@@ -61,7 +61,17 @@ export interface CartItem extends Book {
   quantity: number;
 }
 
+export interface ChatBookCard {
+  id: number;
+  title: string;
+  author: string;
+  price: number;
+  image_url: string | null;
+  stock: number;
+}
+
 export interface ChatMessage {
   role: "user" | "model";
   text: string;
+  books?: ChatBookCard[];
 }

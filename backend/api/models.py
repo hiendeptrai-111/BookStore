@@ -109,3 +109,17 @@ class Inventory(models.Model):
     class Meta:
         managed = False
         db_table = 'INVENTORY'
+
+
+class FAQ(models.Model):
+    question = models.TextField()
+    answer = models.TextField()
+    category = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.question[:80]
+
+    class Meta:
+        verbose_name = "FAQ"
