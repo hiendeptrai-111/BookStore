@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../AppContext';
-import { LayoutDashboard, Book, ShoppingBag, Users, TrendingUp, Package, DollarSign, UserCheck } from 'lucide-react';
+import { LayoutDashboard, Book, ShoppingBag, Users, TrendingUp, Package, DollarSign, Ticket } from 'lucide-react';
 import { formatCurrency } from '../types';
 import { api } from '../services/api';
 
@@ -531,6 +531,200 @@ export const AdminAuthors: React.FC = () => {
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Tiểu sử</label>
                 <textarea rows={3} value={current.bio || ''} onChange={e => setCurrent({...current, bio: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl"></textarea>
+              </div>
+              <div className="flex justify-end space-x-4 pt-4">
+                <button type="button" onClick={() => setIsEditing(false)} className="px-6 py-3 text-gray-500 font-bold">Hủy</button>
+                <button type="submit" className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold">Lưu</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const AdminCoupons: React.FC = () => {
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [current, setCurrent] = useState<any>(null);
+  const [error, setError] = useState('');
+
+  const load = () => api.coupons.getAll().then(setCoupons).catch(console.error);
+  useEffect(() => { load(); }, []);
+
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError('');
+    try {
+      if (current.id) {
+        await api.coupons.update(current.id, current);
+      } else {
+        await api.coupons.create(current);
+      }
+      setIsEditing(false);
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleToggle = async (coupon: any) => {
+    try {
+      await api.coupons.update(coupon.id, { is_active: !coupon.is_active });
+      load();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!globalThis.confirm('Xóa mã giảm giá này?')) return;
+    try {
+      await api.coupons.delete(id);
+      load();
+    } catch (err: any) { alert(err.message); }
+  };
+
+  const typeLabel = (type: string, value: number) =>
+    type === 'percent' ? `${value}%` : formatCurrency(value);
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+          <Ticket className="w-7 h-7 text-indigo-500" /> Mã giảm giá
+        </h1>
+        <button
+          onClick={() => { setCurrent({ code: '', discount_type: 'percent', discount_value: 10, min_order_value: 0, max_uses: 0, expires_at: '' }); setIsEditing(true); setError(''); }}
+          className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all"
+        >
+          Tạo mã mới
+        </button>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+        <table className="w-full text-left">
+          <thead className="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Mã</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Giảm giá</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Đơn tối thiểu</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Đã dùng</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Hết hạn</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Trạng thái</th>
+              <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {coupons.length === 0 ? (
+              <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400 text-sm">Chưa có mã giảm giá nào</td></tr>
+            ) : coupons.map(c => (
+              <tr key={c.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 font-bold text-gray-900 tracking-widest">{c.code}</td>
+                <td className="px-6 py-4 font-bold text-indigo-600">{typeLabel(c.discount_type, c.discount_value)}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{c.min_order_value > 0 ? formatCurrency(c.min_order_value) : '—'}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{c.used_count}{c.max_uses > 0 ? ` / ${c.max_uses}` : ''}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{c.expires_at ? new Date(c.expires_at).toLocaleDateString('vi-VN') : '—'}</td>
+                <td className="px-6 py-4">
+                  <button
+                    onClick={() => handleToggle(c)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${c.is_active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}
+                  >
+                    {c.is_active ? 'Đang bật' : 'Đã tắt'}
+                  </button>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex space-x-2">
+                    <button onClick={() => { setCurrent({ ...c, expires_at: c.expires_at ? c.expires_at.slice(0, 16) : '' }); setIsEditing(true); setError(''); }} className="text-blue-600 hover:underline text-sm font-bold">Sửa</button>
+                    <button onClick={() => handleDelete(c.id)} className="text-red-600 hover:underline text-sm font-bold">Xóa</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {isEditing && current && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-8">
+            <h2 className="text-2xl font-bold mb-6">{current.id ? 'Sửa mã giảm giá' : 'Tạo mã giảm giá mới'}</h2>
+            {error && <p className="text-red-500 text-sm bg-red-50 p-3 rounded-xl mb-4">{error}</p>}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="coupon-code" className="block text-sm font-bold text-gray-700 mb-2">Mã giảm giá</label>
+                <input
+                  id="coupon-code"
+                  required
+                  disabled={!!current.id}
+                  value={current.code}
+                  onChange={e => setCurrent({ ...current, code: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl uppercase font-bold tracking-widest disabled:opacity-50"
+                  placeholder="VD: SUMMER20"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="coupon-type" className="block text-sm font-bold text-gray-700 mb-2">Loại giảm giá</label>
+                  <select
+                    id="coupon-type"
+                    value={current.discount_type}
+                    onChange={e => setCurrent({ ...current, discount_type: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl"
+                  >
+                    <option value="percent">Phần trăm (%)</option>
+                    <option value="fixed">Số tiền cố định (đ)</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="coupon-value" className="block text-sm font-bold text-gray-700 mb-2">
+                    Giá trị {current.discount_type === 'percent' ? '(%)' : '(đ)'}
+                  </label>
+                  <input
+                    id="coupon-value"
+                    required
+                    type="number"
+                    min="1"
+                    max={current.discount_type === 'percent' ? 100 : undefined}
+                    value={current.discount_value}
+                    onChange={e => setCurrent({ ...current, discount_value: Number(e.target.value) })}
+                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="coupon-min" className="block text-sm font-bold text-gray-700 mb-2">Đơn tối thiểu (đ)</label>
+                  <input
+                    id="coupon-min"
+                    type="number"
+                    min="0"
+                    value={current.min_order_value}
+                    onChange={e => setCurrent({ ...current, min_order_value: Number(e.target.value) })}
+                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="coupon-max" className="block text-sm font-bold text-gray-700 mb-2">Số lượt dùng tối đa</label>
+                  <input
+                    id="coupon-max"
+                    type="number"
+                    min="0"
+                    value={current.max_uses}
+                    onChange={e => setCurrent({ ...current, max_uses: Number(e.target.value) })}
+                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl"
+                    placeholder="0 = không giới hạn"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="coupon-expires" className="block text-sm font-bold text-gray-700 mb-2">Ngày hết hạn (để trống = không hết hạn)</label>
+                <input
+                  id="coupon-expires"
+                  type="datetime-local"
+                  value={current.expires_at || ''}
+                  onChange={e => setCurrent({ ...current, expires_at: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl"
+                />
               </div>
               <div className="flex justify-end space-x-4 pt-4">
                 <button type="button" onClick={() => setIsEditing(false)} className="px-6 py-3 text-gray-500 font-bold">Hủy</button>

@@ -4,12 +4,13 @@ from rest_framework import status
 from django.utils import timezone
 from django.db import models
 from django.core.exceptions import ObjectDoesNotExist
-from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers
+from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers, DiscountCode
 from .serializers import BookSerializer
-from .auth_utils import generate_jwt_token, jwt_required
+from .auth_utils import create_access_token, require_admin, require_auth
 import hashlib
-
-
+import time
+import threading
+from .chat_service import get_chat_reply   # ← thêm dòng import này ở đầu views.py
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -50,7 +51,7 @@ def register(request):
         role=0,
         created_at=timezone.now().date()
     )
-    token = generate_jwt_token(customer)
+    token = create_access_token(customer)
 
     return Response({
         'id': customer.customer_id,
@@ -77,7 +78,7 @@ def login_view(request):
     if customer.password != hash_password(password):
         return Response({'error': 'Email hoặc mật khẩu không đúng'}, status=status.HTTP_400_BAD_REQUEST)
 
-    token = generate_jwt_token(customer)
+    token = create_access_token(customer)
     return Response({
         'id': customer.customer_id,
         'email': customer.email,
@@ -88,17 +89,75 @@ def login_view(request):
 
 
 @api_view(['POST'])
-@jwt_required()
+def validate_coupon(request):
+    code = request.data.get('code', '').strip().upper()
+    subtotal = float(request.data.get('subtotal', 0))
+
+    if not code:
+        return Response({'valid': False, 'message': 'Vui lòng nhập mã giảm giá'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        coupon = DiscountCode.objects.get(code=code)
+    except ObjectDoesNotExist:
+        return Response({'valid': False, 'message': 'Mã giảm giá không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not coupon.is_active:
+        return Response({'valid': False, 'message': 'Mã giảm giá đã bị vô hiệu hóa'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if coupon.expires_at and coupon.expires_at < timezone.now():
+        return Response({'valid': False, 'message': 'Mã giảm giá đã hết hạn'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if coupon.max_uses > 0 and coupon.used_count >= coupon.max_uses:
+        return Response({'valid': False, 'message': 'Mã giảm giá đã hết lượt sử dụng'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if subtotal < float(coupon.min_order_value):
+        return Response({
+            'valid': False,
+            'message': f'Đơn hàng tối thiểu {coupon.min_order_value:,.0f}đ để dùng mã này'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if coupon.discount_type == 'percent':
+        discount_amount = subtotal * float(coupon.discount_value) / 100
+    else:
+        discount_amount = min(float(coupon.discount_value), subtotal)
+
+    return Response({
+        'valid': True,
+        'discount_amount': round(discount_amount),
+        'discount_type': coupon.discount_type,
+        'discount_value': float(coupon.discount_value),
+        'message': f'Áp dụng mã thành công! Giảm {coupon.discount_value:.0f}{"%" if coupon.discount_type == "percent" else "đ"}'
+    })
+
+
+@api_view(['POST'])
 def create_order(request):
+    customer_id, _, err = require_auth(request)
+    if err:
+        return err
+
     items = request.data.get('items', [])
     total_price = request.data.get('total_price', 0)
     address = request.data.get('address', '')
     phone = request.data.get('phone', '')
+    coupon_code = request.data.get('coupon_code', '').strip().upper()
 
     if not items:
         return Response({'error': 'Thiếu thông tin đặt hàng'}, status=status.HTTP_400_BAD_REQUEST)
 
-    customer = request.customer
+    try:
+        customer = Customers.objects.get(customer_id=customer_id)
+    except ObjectDoesNotExist:
+        return Response({'error': 'Người dùng không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if coupon_code:
+        try:
+            coupon = DiscountCode.objects.get(code=coupon_code, is_active=True)
+            if coupon.max_uses == 0 or coupon.used_count < coupon.max_uses:
+                coupon.used_count += 1
+                coupon.save(update_fields=['used_count'])
+        except ObjectDoesNotExist:
+            pass
 
     order = Orders.objects.create(
         customer=customer,
@@ -129,10 +188,7 @@ def create_order(request):
 
 
 @api_view(['GET'])
-@jwt_required()
 def get_user_orders(request, user_id):
-    if request.customer.role != 1 and request.customer.customer_id != user_id:
-        return Response({'error': 'Không có quyền truy cập'}, status=status.HTTP_403_FORBIDDEN)
     try:
         orders = Orders.objects.filter(customer_id=user_id).order_by('-order_date')
         result = []
@@ -175,8 +231,9 @@ def get_publishers(request):
 
 
 @api_view(['POST'])
-@jwt_required(admin_required=True)
 def create_book(request):
+    _, err = require_admin(request)
+    if err: return err
     try:
         title = request.data.get('title', '').strip()
         author_id = request.data.get('author_id')
@@ -212,8 +269,9 @@ def create_book(request):
 
 
 @api_view(['PUT'])
-@jwt_required(admin_required=True)
 def update_book(request, book_id):
+    _, err = require_admin(request)
+    if err: return err
     try:
         book = Books.objects.get(book_id=book_id)
         if 'title' in request.data:
@@ -241,8 +299,9 @@ def update_book(request, book_id):
 
 
 @api_view(['DELETE'])
-@jwt_required(admin_required=True)
 def delete_book(request, book_id):
+    _, err = require_admin(request)
+    if err: return err
     try:
         book = Books.objects.get(book_id=book_id)
         book.delete()
@@ -252,8 +311,9 @@ def delete_book(request, book_id):
 
 
 @api_view(['GET'])
-@jwt_required(admin_required=True)
 def get_admin_stats(request):
+    _, err = require_admin(request)
+    if err: return err
     books_count = Books.objects.count()
     orders_count = Orders.objects.count()
     users_count = Customers.objects.count()
@@ -289,8 +349,9 @@ def get_admin_stats(request):
     })
 
 @api_view(['GET'])
-@jwt_required(admin_required=True)
 def get_admin_orders(request):
+    _, err = require_admin(request)
+    if err: return err
     orders = Orders.objects.select_related('customer').order_by('-order_date')
     result = []
     for order in orders:
@@ -307,8 +368,9 @@ def get_admin_orders(request):
 
 
 @api_view(['PATCH'])
-@jwt_required(admin_required=True)
 def update_order_status(request, order_id):
+    _, err = require_admin(request)
+    if err: return err
     try:
         order = Orders.objects.get(order_id=order_id)
         order.status = request.data.get('status', order.status)
@@ -319,8 +381,9 @@ def update_order_status(request, order_id):
 
 
 @api_view(['GET'])
-@jwt_required(admin_required=True)
 def get_admin_users(request):
+    _, err = require_admin(request)
+    if err: return err
     users = Customers.objects.all()
     result = [{
         'id': u.customer_id,
@@ -333,8 +396,9 @@ def get_admin_users(request):
 
 # ===== AUTHORS =====
 @api_view(['POST'])
-@jwt_required(admin_required=True)
 def create_author(request):
+    _, err = require_admin(request)
+    if err: return err
     full_name = request.data.get('full_name', '').strip()
     bio = request.data.get('bio', '')
     nationality = request.data.get('nationality', '')
@@ -347,8 +411,9 @@ def create_author(request):
 
 
 @api_view(['PUT'])
-@jwt_required(admin_required=True)
 def update_author(request, author_id):
+    _, err = require_admin(request)
+    if err: return err
     try:
         author = Authors.objects.get(author_id=author_id)
         if 'full_name' in request.data:
@@ -364,8 +429,9 @@ def update_author(request, author_id):
 
 
 @api_view(['DELETE'])
-@jwt_required(admin_required=True)
 def delete_author(request, author_id):
+    _, err = require_admin(request)
+    if err: return err
     try:
         author = Authors.objects.get(author_id=author_id)
         author.delete()
@@ -378,8 +444,9 @@ def delete_author(request, author_id):
 
 # ===== CATEGORIES =====
 @api_view(['POST'])
-@jwt_required(admin_required=True)
 def create_category(request):
+    _, err = require_admin(request)
+    if err: return err
     name = request.data.get('name', '').strip()
     if not name:
         return Response({'error': 'Tên danh mục không được để trống'}, status=status.HTTP_400_BAD_REQUEST)
@@ -389,8 +456,9 @@ def create_category(request):
 
 
 @api_view(['PUT'])
-@jwt_required(admin_required=True)
 def update_category(request, category_id):
+    _, err = require_admin(request)
+    if err: return err
     try:
         category = Categories.objects.get(category_id=category_id)
         if 'name' in request.data:
@@ -402,8 +470,9 @@ def update_category(request, category_id):
 
 
 @api_view(['DELETE'])
-@jwt_required(admin_required=True)
 def delete_category(request, category_id):
+    _, err = require_admin(request)
+    if err: return err
     try:
         category = Categories.objects.get(category_id=category_id)
         category.delete()
@@ -412,3 +481,138 @@ def delete_category(request, category_id):
         return Response({'error': 'Không tìm thấy danh mục'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': 'Không thể xóa danh mục đang có sách'}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+# ===== DISCOUNT CODES =====
+@api_view(['GET'])
+def get_admin_coupons(request):
+    _, err = require_admin(request)
+    if err: return err
+    coupons = DiscountCode.objects.all().order_by('-created_at')
+    result = [{
+        'id': c.id,
+        'code': c.code,
+        'discount_type': c.discount_type,
+        'discount_value': float(c.discount_value),
+        'min_order_value': float(c.min_order_value),
+        'max_uses': c.max_uses,
+        'used_count': c.used_count,
+        'is_active': c.is_active,
+        'expires_at': c.expires_at.isoformat() if c.expires_at else None,
+        'created_at': c.created_at.isoformat(),
+    } for c in coupons]
+    return Response(result)
+
+
+@api_view(['POST'])
+def create_coupon(request):
+    _, err = require_admin(request)
+    if err: return err
+    code = request.data.get('code', '').strip().upper()
+    discount_type = request.data.get('discount_type', '')
+    discount_value = request.data.get('discount_value')
+    min_order_value = request.data.get('min_order_value', 0)
+    max_uses = request.data.get('max_uses', 0)
+    expires_at = request.data.get('expires_at')
+
+    if not code or not discount_type or discount_value is None:
+        return Response({'error': 'Vui lòng điền đầy đủ thông tin'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if discount_type not in ('percent', 'fixed'):
+        return Response({'error': 'Loại giảm giá không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if discount_type == 'percent' and float(discount_value) > 100:
+        return Response({'error': 'Phần trăm giảm giá không thể vượt quá 100%'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if DiscountCode.objects.filter(code=code).exists():
+        return Response({'error': 'Mã giảm giá đã tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+
+    coupon = DiscountCode.objects.create(
+        code=code,
+        discount_type=discount_type,
+        discount_value=discount_value,
+        min_order_value=min_order_value,
+        max_uses=max_uses,
+        expires_at=expires_at if expires_at else None,
+    )
+    return Response({'success': True, 'id': coupon.id}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH'])
+def update_coupon(request, coupon_id):
+    _, err = require_admin(request)
+    if err: return err
+    try:
+        coupon = DiscountCode.objects.get(id=coupon_id)
+    except ObjectDoesNotExist:
+        return Response({'error': 'Không tìm thấy mã giảm giá'}, status=status.HTTP_404_NOT_FOUND)
+
+    if 'is_active' in request.data:
+        coupon.is_active = request.data['is_active']
+    if 'discount_value' in request.data:
+        coupon.discount_value = request.data['discount_value']
+    if 'min_order_value' in request.data:
+        coupon.min_order_value = request.data['min_order_value']
+    if 'max_uses' in request.data:
+        coupon.max_uses = request.data['max_uses']
+    if 'expires_at' in request.data:
+        coupon.expires_at = request.data['expires_at'] or None
+    coupon.save()
+    return Response({'success': True})
+
+
+@api_view(['DELETE'])
+def delete_coupon(request, coupon_id):
+    _, err = require_admin(request)
+    if err: return err
+    try:
+        coupon = DiscountCode.objects.get(id=coupon_id)
+        coupon.delete()
+        return Response({'success': True})
+    except ObjectDoesNotExist:
+        return Response({'error': 'Không tìm thấy mã giảm giá'}, status=status.HTTP_404_NOT_FOUND)
+
+
+_request_times = []
+_lock = threading.Lock()
+RATE_LIMIT = 12        # max requests
+RATE_WINDOW = 60       # trong 60 giây
+ 
+def _check_rate_limit() -> bool:
+    """Trả về True nếu còn quota, False nếu đã hết."""
+    now = time.time()
+    with _lock:
+        # Xóa các request cũ hơn 60s
+        while _request_times and now - _request_times[0] > RATE_WINDOW:
+            _request_times.pop(0)
+        if len(_request_times) >= RATE_LIMIT:
+            return False
+        _request_times.append(now)
+        return True
+ 
+# ===== Cache sách (5 phút) =====
+_books_cache = {"data": None, "timestamp": 0}
+CACHE_TTL = 300  # 5 phút
+ 
+def _get_books_context():
+    now = time.time()
+    if _books_cache["data"] and now - _books_cache["timestamp"] < CACHE_TTL:
+        return _books_cache["data"]
+ 
+    books = Books.objects.select_related('author', 'category').all()
+    book_list = '\n'.join([
+        f'- Tên: "{b.title}" | Tác giả: {b.author.full_name} | '
+        f'Giá: {b.price:,.0f}đ | Còn: {b.stock_quantity} cuốn'
+        for b in books
+    ])
+    result = f"Danh sách sách:\n{book_list}" if book_list else "Chưa có sách nào."
+    _books_cache["data"] = result
+    _books_cache["timestamp"] = now
+    return result
+@api_view(['POST'])
+def chat(request):
+    message = request.data.get('message', '').strip()
+    if not message:
+        return Response({'error': 'Tin nhắn không được để trống'}, status=400)
+    reply = get_chat_reply(message)
+    return Response(reply)

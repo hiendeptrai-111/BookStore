@@ -1,4 +1,4 @@
-import { Book, User, Order } from '../types';
+import { Book, User, Order, DiscountCode } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const IS_MOCK = false;
@@ -138,10 +138,35 @@ export const api = {
 
   // --- ADMIN ---
   admin: {
-    // Lấy thống kê tổng quan (doanh thu, số đơn, số user...)
     getStats: () => request<any>('/admin/stats/'),
-
-    // Lấy danh sách tất cả user
     getUsers: () => request<User[]>('/admin/users/'),
+  },
+
+  // --- MÃ GIẢM GIÁ ---
+  coupons: {
+    validate: (code: string, subtotal: number) =>
+      request<{ valid: boolean; discount_amount: number; discount_type: string; discount_value: number; message: string }>(
+        '/coupons/validate/',
+        { method: 'POST', body: JSON.stringify({ code, subtotal }) }
+      ),
+
+    getAll: () => request<DiscountCode[]>('/admin/coupons/'),
+
+    create: (data: Partial<DiscountCode>) =>
+      request<{ success: boolean; id: number }>('/admin/coupons/create/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    update: (id: number, data: Partial<DiscountCode>) =>
+      request<{ success: boolean }>(`/admin/coupons/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    delete: (id: number) =>
+      request<{ success: boolean }>(`/admin/coupons/${id}/delete/`, {
+        method: 'DELETE',
+      }),
   },
 };

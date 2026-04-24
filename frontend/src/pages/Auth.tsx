@@ -8,13 +8,14 @@ export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { setUser } = useApp();
+  const { setUser, setToken } = useApp();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const data = await api.auth.login({ email, password });
+      if (data.token) setToken(data.token);
       setUser(data);
       navigate(data.role === 'admin' ? '/admin' : '/');
     } catch (err: any) {
@@ -81,13 +82,14 @@ export const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
-  const { setUser } = useApp();
+  const { setUser, setToken } = useApp();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const data = await api.auth.register({ email, password, name });
+      if (data.token) setToken(data.token);
       setUser(data);
       navigate('/');
     } catch (err: any) {

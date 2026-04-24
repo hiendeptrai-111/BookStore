@@ -10,6 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -82,8 +85,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'bookstore',
         'USER': 'root',
-        'PASSWORD': '27022004',
-        'HOST': '127.0.0.1',
+        'PASSWORD': '060704',
+        'HOST': 'localhost',
         'PORT': '3306',
     }
 }
@@ -135,3 +138,28 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+# Test database configuration
+import sys
+if 'test' in sys.argv:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'bookstore',  # dùng thẳng DB thật
+        'USER': 'root',
+        'PASSWORD': '060704',
+        'HOST': 'localhost',
+        'PORT': '3306',
+        'TEST': {
+            'NAME': 'bookstore',  # không tạo DB mới, dùng DB hiện có
+            'CREATE_DB': False,   # không tạo DB mới
+        },
+    }
+
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ]
+}
+import os
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+JWT_SECRET = os.environ.get('JWT_SECRET', SECRET_KEY)

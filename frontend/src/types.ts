@@ -17,6 +17,7 @@ export interface User {
   email: string;
   name: string;
   role: "user" | "admin";
+  token?: string;
 }
 
 export interface Book {
@@ -52,7 +53,30 @@ export interface CartItem extends Book {
   quantity: number;
 }
 
+export interface ChatBookCard {
+  id: number;
+  title: string;
+  author: string;
+  price: number;
+  image_url: string | null;
+  stock: number;
+}
+
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
+  books?: ChatBookCard[];
+}
+
+export interface DiscountCode {
+  id: number;
+  code: string;
+  discount_type: 'percent' | 'fixed';
+  discount_value: number;
+  min_order_value: number;
+  max_uses: number;
+  used_count: number;
+  is_active: boolean;
+  expires_at: string | null;
+  created_at: string;
 }
