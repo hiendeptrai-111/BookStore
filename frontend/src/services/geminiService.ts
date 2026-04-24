@@ -1,8 +1,13 @@
-import { ChatMessage } from "../types";
+import { ChatMessage, ChatBookCard } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-export async function getChatResponse(history: ChatMessage[], message: string): Promise<string> {
+export interface ChatResponse {
+  text: string;
+  books: ChatBookCard[];
+}
+
+export async function getChatResponse(history: ChatMessage[], message: string): Promise<ChatResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/chat/`, {
       method: 'POST',
@@ -13,10 +18,16 @@ export async function getChatResponse(history: ChatMessage[], message: string): 
     if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
 
     const data = await response.json();
-    return data.text || "Xin lỗi, tôi gặp trục trặc. Thử lại nhé!";
+    return {
+      text: data.text || "Xin lỗi, tôi gặp trục trặc. Thử lại nhé!",
+      books: data.books || [],
+    };
 
   } catch (error) {
     console.error("Chat Error:", error);
-    return "Xin lỗi, hiện tại tôi không thể trả lời. Vui lòng thử lại sau.";
+    return {
+      text: "Xin lỗi, hiện tại tôi không thể trả lời. Vui lòng thử lại sau.",
+      books: [],
+    };
   }
 }

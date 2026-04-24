@@ -42,8 +42,8 @@ class Books(models.Model):
     publisher = models.ForeignKey(Publishers, models.DO_NOTHING)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock_quantity = models.IntegerField()
-    description = models.TextField(blank=True, null=True)  # thêm
-    image_url = models.CharField(max_length=500, blank=True, null=True)  # thêm
+    description = models.TextField(blank=True, null=True)
+    image_url = models.CharField(max_length=500, blank=True, null=True)
 
     class Meta:
         managed = False
@@ -101,3 +101,17 @@ class Inventory(models.Model):
     class Meta:
         managed = False
         db_table = 'INVENTORY'
+
+
+class FAQ(models.Model):
+    question = models.TextField()
+    answer = models.TextField()
+    category = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.question[:80]
+
+    class Meta:
+        verbose_name = "FAQ"
