@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../AppContext';
 import { formatCurrency } from '../types';
-import { CreditCard, MapPin, Phone, User } from 'lucide-react';
+import { CreditCard, MapPin, Phone, User, Tag, CheckCircle, XCircle } from 'lucide-react';
 import { api } from '../services/api';
 
 export const Checkout: React.FC = () => {
@@ -12,20 +12,48 @@ export const Checkout: React.FC = () => {
   const [formData, setFormData] = useState({
     address: '',
     phone: '',
-    name: user?.name || ''
+    name: user?.name || '',
   });
+  const [couponInput, setCouponInput] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponState, setCouponState] = useState<{
+    applied: boolean;
+    discount: number;
+    message: string;
+    code: string;
+  }>({ applied: false, discount: 0, message: '', code: '' });
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal > 500000 ? 0 : 30000;
-  const total = subtotal + shipping;
+  const discount = couponState.applied ? couponState.discount : 0;
+  const discountedSubtotal = subtotal - discount;
+  const shipping = discountedSubtotal > 500000 ? 0 : 30000;
+  const total = discountedSubtotal + shipping;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      navigate('/login');
-      return;
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    try {
+      const res = await api.coupons.validate(couponInput.trim(), subtotal);
+      if (res.valid) {
+        setCouponState({ applied: true, discount: res.discount_amount, message: res.message, code: couponInput.trim().toUpperCase() });
+      } else {
+        setCouponState({ applied: false, discount: 0, message: res.message, code: '' });
+      }
+    } catch (err: any) {
+      setCouponState({ applied: false, discount: 0, message: err.message || 'Mã không hợp lệ', code: '' });
+    } finally {
+      setCouponLoading(false);
     }
+  };
 
+  const handleRemoveCoupon = () => {
+    setCouponState({ applied: false, discount: 0, message: '', code: '' });
+    setCouponInput('');
+  };
+
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) { navigate('/login'); return; }
     setLoading(true);
     try {
       const data = await api.orders.create({
@@ -33,13 +61,10 @@ export const Checkout: React.FC = () => {
         items: cart,
         total_price: total,
         address: formData.address,
-        phone: formData.phone
+        phone: formData.phone,
+        coupon_code: couponState.applied ? couponState.code : '',
       });
-
-      if (data.success) {
-        clearCart();
-        navigate('/orders');
-      }
+      if (data.success) { clearCart(); navigate('/orders'); }
     } catch (error) {
       console.error(error);
     } finally {
@@ -55,50 +80,99 @@ export const Checkout: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="bg-white p-8 rounded-3xl border border-gray-100 space-y-6">
             <h3 className="text-xl font-bold text-gray-900">Thông tin giao hàng</h3>
-            
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Họ và tên</label>
+                <label htmlFor="checkout-name" className="block text-sm font-medium text-gray-700 mb-2">Họ và tên</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input 
+                  <input
+                    id="checkout-name"
                     required
-                    type="text" 
+                    type="text"
                     value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại</label>
+                <label htmlFor="checkout-phone" className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input 
+                  <input
+                    id="checkout-phone"
                     required
-                    type="tel" 
+                    type="tel"
                     value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ nhận hàng</label>
+                <label htmlFor="checkout-address" className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ nhận hàng</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 text-gray-400 w-4 h-4" />
-                  <textarea 
+                  <textarea
+                    id="checkout-address"
                     required
                     rows={3}
                     value={formData.address}
-                    onChange={e => setFormData({...formData, address: e.target.value})}
+                    onChange={e => setFormData({ ...formData, address: e.target.value })}
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500"
-                  ></textarea>
+                  />
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-3xl border border-gray-100 space-y-4">
+            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Tag className="w-5 h-5 text-indigo-500" /> Mã giảm giá
+            </h3>
+
+            {couponState.applied ? (
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-2xl px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div>
+                    <p className="text-sm font-bold text-green-700">{couponState.code}</p>
+                    <p className="text-xs text-green-600">{couponState.message}</p>
+                  </div>
+                </div>
+                <button type="button" onClick={handleRemoveCoupon}>
+                  <XCircle className="w-5 h-5 text-gray-400 hover:text-red-500 transition-colors" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleApplyCoupon())}
+                    placeholder="Nhập mã giảm giá..."
+                    className="flex-1 px-4 py-3 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponInput.trim()}
+                    className="px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all disabled:opacity-50"
+                  >
+                    {couponLoading ? '...' : 'Áp dụng'}
+                  </button>
+                </div>
+                {couponState.message && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <XCircle className="w-4 h-4" /> {couponState.message}
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           <div className="bg-white p-8 rounded-3xl border border-gray-100 space-y-6">
@@ -112,7 +186,7 @@ export const Checkout: React.FC = () => {
             </div>
           </div>
 
-          <button 
+          <button
             disabled={loading}
             className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 disabled:opacity-50"
           >
@@ -128,7 +202,7 @@ export const Checkout: React.FC = () => {
                 <div key={item.id} className="flex justify-between items-center">
                   <div className="flex items-center space-x-4">
                     <div className="w-12 h-16 bg-gray-200 rounded-lg overflow-hidden">
-                      <img src={item.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-gray-900 truncate w-40">{item.title}</p>
@@ -144,6 +218,12 @@ export const Checkout: React.FC = () => {
                 <span>Tạm tính</span>
                 <span>{formatCurrency(subtotal)}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-sm text-green-600 font-bold">
+                  <span>Giảm giá ({couponState.code})</span>
+                  <span>-{formatCurrency(discount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Phí vận chuyển</span>
                 <span>{shipping === 0 ? 'Miễn phí' : formatCurrency(shipping)}</span>

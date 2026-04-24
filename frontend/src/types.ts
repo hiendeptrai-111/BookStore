@@ -66,3 +66,16 @@ export interface ChatMessage {
   text: string;
   books?: ChatBookCard[];
 }
+
+export interface DiscountCode {
+  id: number;
+  code: string;
+  discount_type: 'percent' | 'fixed';
+  discount_value: number;
+  min_order_value: number;
+  max_uses: number;
+  used_count: number;
+  is_active: boolean;
+  expires_at: string | null;
+  created_at: string;
+}

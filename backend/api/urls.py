@@ -7,6 +7,7 @@ from .views import (
     get_admin_stats, get_admin_orders, update_order_status, get_admin_users,
     create_author, update_author, delete_author,
     create_category, update_category, delete_category,
+    validate_coupon, get_admin_coupons, create_coupon, update_coupon, delete_coupon,
 )
 
 urlpatterns = [
@@ -16,6 +17,7 @@ urlpatterns = [
     path('auth/login/', login_view),
     path('orders/', create_order),
     path('orders/user/<int:user_id>/', get_user_orders),
+    path('coupons/validate/', validate_coupon),
     path('admin/books/', create_book),
     path('admin/books/<int:book_id>/', update_book),
     path('admin/books/<int:book_id>/delete/', delete_book),
@@ -32,5 +34,9 @@ urlpatterns = [
     path('admin/categories/<int:category_id>/', update_category),
     path('admin/categories/<int:category_id>/delete/', delete_category),
     path('admin/publishers/', get_publishers),
-    path('chat/', chat),  # thêm dòng này
+    path('admin/coupons/', get_admin_coupons),
+    path('admin/coupons/create/', create_coupon),
+    path('admin/coupons/<int:coupon_id>/', update_coupon),
+    path('admin/coupons/<int:coupon_id>/delete/', delete_coupon),
+    path('chat/', chat),
 ]

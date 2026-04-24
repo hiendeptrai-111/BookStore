@@ -4,7 +4,7 @@ from rest_framework import status
 from django.utils import timezone
 from django.db import models
 from django.core.exceptions import ObjectDoesNotExist
-from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers
+from .models import Books, Customers, Orders, OrderItems, Authors, Categories, Publishers, DiscountCode
 from .serializers import BookSerializer
 import hashlib
 import time
@@ -84,12 +84,55 @@ def login_view(request):
 
 
 @api_view(['POST'])
+def validate_coupon(request):
+    code = request.data.get('code', '').strip().upper()
+    subtotal = float(request.data.get('subtotal', 0))
+
+    if not code:
+        return Response({'valid': False, 'message': 'Vui lòng nhập mã giảm giá'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        coupon = DiscountCode.objects.get(code=code)
+    except ObjectDoesNotExist:
+        return Response({'valid': False, 'message': 'Mã giảm giá không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not coupon.is_active:
+        return Response({'valid': False, 'message': 'Mã giảm giá đã bị vô hiệu hóa'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if coupon.expires_at and coupon.expires_at < timezone.now():
+        return Response({'valid': False, 'message': 'Mã giảm giá đã hết hạn'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if coupon.max_uses > 0 and coupon.used_count >= coupon.max_uses:
+        return Response({'valid': False, 'message': 'Mã giảm giá đã hết lượt sử dụng'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if subtotal < float(coupon.min_order_value):
+        return Response({
+            'valid': False,
+            'message': f'Đơn hàng tối thiểu {coupon.min_order_value:,.0f}đ để dùng mã này'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if coupon.discount_type == 'percent':
+        discount_amount = subtotal * float(coupon.discount_value) / 100
+    else:
+        discount_amount = min(float(coupon.discount_value), subtotal)
+
+    return Response({
+        'valid': True,
+        'discount_amount': round(discount_amount),
+        'discount_type': coupon.discount_type,
+        'discount_value': float(coupon.discount_value),
+        'message': f'Áp dụng mã thành công! Giảm {coupon.discount_value:.0f}{"%" if coupon.discount_type == "percent" else "đ"}'
+    })
+
+
+@api_view(['POST'])
 def create_order(request):
     user_id = request.data.get('user_id')
     items = request.data.get('items', [])
     total_price = request.data.get('total_price', 0)
     address = request.data.get('address', '')
     phone = request.data.get('phone', '')
+    coupon_code = request.data.get('coupon_code', '').strip().upper()
 
     if not user_id or not items:
         return Response({'error': 'Thiếu thông tin đặt hàng'}, status=status.HTTP_400_BAD_REQUEST)
@@ -98,6 +141,15 @@ def create_order(request):
         customer = Customers.objects.get(customer_id=user_id)
     except ObjectDoesNotExist:
         return Response({'error': 'Người dùng không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if coupon_code:
+        try:
+            coupon = DiscountCode.objects.get(code=coupon_code, is_active=True)
+            if coupon.max_uses == 0 or coupon.used_count < coupon.max_uses:
+                coupon.used_count += 1
+                coupon.save(update_fields=['used_count'])
+        except ObjectDoesNotExist:
+            pass
 
     order = Orders.objects.create(
         customer=customer,
@@ -397,6 +449,88 @@ def delete_category(request, category_id):
         return Response({'error': 'Không thể xóa danh mục đang có sách'}, status=status.HTTP_400_BAD_REQUEST)
     
 
+# ===== DISCOUNT CODES =====
+@api_view(['GET'])
+def get_admin_coupons(request):
+    coupons = DiscountCode.objects.all().order_by('-created_at')
+    result = [{
+        'id': c.id,
+        'code': c.code,
+        'discount_type': c.discount_type,
+        'discount_value': float(c.discount_value),
+        'min_order_value': float(c.min_order_value),
+        'max_uses': c.max_uses,
+        'used_count': c.used_count,
+        'is_active': c.is_active,
+        'expires_at': c.expires_at.isoformat() if c.expires_at else None,
+        'created_at': c.created_at.isoformat(),
+    } for c in coupons]
+    return Response(result)
+
+
+@api_view(['POST'])
+def create_coupon(request):
+    code = request.data.get('code', '').strip().upper()
+    discount_type = request.data.get('discount_type', '')
+    discount_value = request.data.get('discount_value')
+    min_order_value = request.data.get('min_order_value', 0)
+    max_uses = request.data.get('max_uses', 0)
+    expires_at = request.data.get('expires_at')
+
+    if not code or not discount_type or discount_value is None:
+        return Response({'error': 'Vui lòng điền đầy đủ thông tin'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if discount_type not in ('percent', 'fixed'):
+        return Response({'error': 'Loại giảm giá không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if discount_type == 'percent' and float(discount_value) > 100:
+        return Response({'error': 'Phần trăm giảm giá không thể vượt quá 100%'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if DiscountCode.objects.filter(code=code).exists():
+        return Response({'error': 'Mã giảm giá đã tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+
+    coupon = DiscountCode.objects.create(
+        code=code,
+        discount_type=discount_type,
+        discount_value=discount_value,
+        min_order_value=min_order_value,
+        max_uses=max_uses,
+        expires_at=expires_at if expires_at else None,
+    )
+    return Response({'success': True, 'id': coupon.id}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH'])
+def update_coupon(request, coupon_id):
+    try:
+        coupon = DiscountCode.objects.get(id=coupon_id)
+    except ObjectDoesNotExist:
+        return Response({'error': 'Không tìm thấy mã giảm giá'}, status=status.HTTP_404_NOT_FOUND)
+
+    if 'is_active' in request.data:
+        coupon.is_active = request.data['is_active']
+    if 'discount_value' in request.data:
+        coupon.discount_value = request.data['discount_value']
+    if 'min_order_value' in request.data:
+        coupon.min_order_value = request.data['min_order_value']
+    if 'max_uses' in request.data:
+        coupon.max_uses = request.data['max_uses']
+    if 'expires_at' in request.data:
+        coupon.expires_at = request.data['expires_at'] or None
+    coupon.save()
+    return Response({'success': True})
+
+
+@api_view(['DELETE'])
+def delete_coupon(request, coupon_id):
+    try:
+        coupon = DiscountCode.objects.get(id=coupon_id)
+        coupon.delete()
+        return Response({'success': True})
+    except ObjectDoesNotExist:
+        return Response({'error': 'Không tìm thấy mã giảm giá'}, status=status.HTTP_404_NOT_FOUND)
+
+
 _request_times = []
 _lock = threading.Lock()
 RATE_LIMIT = 12        # max requests
@@ -439,82 +573,4 @@ def chat(request):
     if not message:
         return Response({'error': 'Tin nhắn không được để trống'}, status=400)
     reply = get_chat_reply(message)
-    return Response({'text': reply})
-# (giữ nguyên tất cả các hàm khác, chỉ xóa hàm chat() cũ)
-@api_view(['POST'])
-def chat(request):
-    message = request.data.get('message', '').strip()
-    if not message:
-        return Response({'error': 'Tin nhắn không được để trống'}, status=400)
-    
-    reply = get_chat_reply(message)
-    return Response({'text': reply})
-    message = request.data.get('message', '').strip().lower()
-
-    if not message:
-        return Response({'error': 'Tin nhắn không được để trống'}, status=400)
-
-    books = Books.objects.select_related('author', 'category').all()
-
-    # Tìm kiếm theo từ khóa
-    matched = books.filter(
-        models.Q(title__icontains=message) |
-        models.Q(author__full_name__icontains=message) |
-        models.Q(category__name__icontains=message) |
-        models.Q(description__icontains=message)
-    )[:5]
-
-    if matched.exists():
-        lines = []
-        for b in matched:
-            stock_text = f"{b.stock_quantity} cuốn" if b.stock_quantity > 0 else "Hết hàng"
-            lines.append(
-                f"📖 {b.title}\n"
-                f"   Tác giả: {b.author.full_name}\n"
-                f"   Thể loại: {b.category.name}\n"
-                f"   Giá: {b.price:,.0f}đ\n"
-                f"   Tình trạng: {stock_text}"
-            )
-        return Response({'text': f"Tìm thấy {matched.count()} sách:\n\n" + "\n\n".join(lines)})
-
-    if any(kw in message for kw in ['tất cả', 'danh sách', 'có sách gì', 'có những sách']):
-        all_books = books[:10]
-        lines = [f"📖 {b.title} - {b.author.full_name} - {b.price:,.0f}đ" for b in all_books]
-        total = books.count()
-        text = f"Cửa hàng có {total} đầu sách:\n\n" + "\n".join(lines)
-        if total > 10:
-            text += f"\n\n...và {total - 10} cuốn khác."
-        return Response({'text': text})
-
-    if any(kw in message for kw in ['rẻ nhất', 'rẻ', 'giá thấp']):
-        cheap = books.filter(stock_quantity__gt=0).order_by('price')[:5]
-        lines = [f"📖 {b.title} - {b.price:,.0f}đ" for b in cheap]
-        return Response({'text': "Sách giá rẻ nhất:\n\n" + "\n".join(lines)})
-
-    if any(kw in message for kw in ['mới nhất', 'mới', 'vừa ra']):
-        new_books = books.order_by('-book_id')[:5]
-        lines = [f"📖 {b.title} - {b.author.full_name} - {b.price:,.0f}đ" for b in new_books]
-        return Response({'text': "Sách mới nhất:\n\n" + "\n".join(lines)})
-
-    if any(kw in message for kw in ['thể loại', 'loại sách', 'chủ đề']):
-        cats = Categories.objects.all()
-        lines = [f"• {c.name} ({books.filter(category=c).count()} cuốn)" for c in cats]
-        return Response({'text': "Thể loại sách:\n\n" + "\n".join(lines)})
-
-    if any(kw in message for kw in ['tác giả', 'author']):
-        authors = Authors.objects.all()[:10]
-        lines = [f"• {a.full_name} ({books.filter(author=a).count()} cuốn)" for a in authors]
-        return Response({'text': "Tác giả:\n\n" + "\n".join(lines)})
-
-    if any(kw in message for kw in ['xin chào', 'hello', 'hi', 'chào', 'hey']):
-        total = books.count()
-        return Response({'text': f"Xin chào! 👋 Cửa hàng có {total} đầu sách.\n\nBạn có thể hỏi:\n• Tìm sách theo tên, tác giả, thể loại\n• Sách giá rẻ nhất\n• Sách mới nhất\n• Danh sách thể loại"})
-
-    return Response({'text': (
-        "Tôi chưa hiểu câu hỏi 😅\n\n"
-        "Bạn thử hỏi:\n"
-        "• Tên sách (vd: 'Doraemon')\n"
-        "• Tác giả (vd: 'Tô Hoài')\n"
-        "• Thể loại (vd: 'thiếu nhi')\n"
-        "• 'Sách rẻ nhất' hoặc 'Sách mới nhất'"
-    )})
+    return Response(reply)

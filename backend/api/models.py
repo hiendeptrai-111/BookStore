@@ -115,3 +115,39 @@ class FAQ(models.Model):
 
     class Meta:
         verbose_name = "FAQ"
+
+
+class BlacklistedToken(models.Model):
+    jti = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'blacklisted_tokens'
+
+    @classmethod
+    def cleanup_expired(cls):
+        from django.utils import timezone
+        cls.objects.filter(expires_at__lt=timezone.now()).delete()
+
+
+class DiscountCode(models.Model):
+    PERCENT = 'percent'
+    FIXED = 'fixed'
+    TYPE_CHOICES = [(PERCENT, 'Phần trăm'), (FIXED, 'Số tiền cố định')]
+
+    code = models.CharField(max_length=50, unique=True)
+    discount_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2)
+    min_order_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    max_uses = models.IntegerField(default=0)
+    used_count = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.code
+
+    class Meta:
+        db_table = 'discount_codes'
