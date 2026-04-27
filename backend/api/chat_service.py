@@ -2,7 +2,13 @@ import re
 from google import genai
 from django.conf import settings
 from django.db import models as db_models
-from .models import Books, FAQ, Categories, Authors, Review, OrderItems
+from .models import Books, FAQ, Categories, Authors, OrderItems
+try:
+    from .models import Review
+    _HAS_REVIEW = True
+except ImportError:
+    Review = None
+    _HAS_REVIEW = False
 
 _GEMINI_SYSTEM = (
     'Bạn là trợ lý của Remix Bookstore — một cửa hàng sách trực tuyến tại Việt Nam. '
@@ -12,21 +18,27 @@ _GEMINI_SYSTEM = (
 )
 
 
+_GEMINI_MODELS = [
+    'models/gemini-2.5-flash-lite',
+    'models/gemini-2.0-flash-001',
+    'models/gemini-2.5-flash',
+]
+
+
 def _ask_gemini(user_message: str) -> str:
-    """Gọi Gemini để trả lời câu hỏi ngoài lề. Trả về chuỗi text, hoặc '' nếu lỗi."""
+    """Gọi Gemini để trả lời câu hỏi ngoài lề. Thử nhiều model nếu bị quá tải."""
     api_key = getattr(settings, 'GEMINI_API_KEY', '')
     if not api_key:
         return ''
-    try:
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=f'{_GEMINI_SYSTEM}\n\nKhách hỏi: {user_message}',
-        )
-        return response.text.strip()
-    except Exception as e:
-        print(f'Gemini error: {e}')
-        return ''
+    client = genai.Client(api_key=api_key)
+    contents = f'{_GEMINI_SYSTEM}\n\nKhách hỏi: {user_message}'
+    for model in _GEMINI_MODELS:
+        try:
+            response = client.models.generate_content(model=model, contents=contents)
+            return response.text.strip()
+        except Exception as e:
+            print(f'Gemini error [{model}]: {e}')
+    return ''
 
 
 STOP_WORDS = {
@@ -112,6 +124,8 @@ def _reply_cheapest():
 
 
 def _reply_top_rated():
+    if not _HAS_REVIEW:
+        return {'text': 'Tính năng đánh giá sách chưa được kích hoạt. Anh/chị thử tìm sách theo tên hoặc thể loại nhé!', 'books': []}
     top = (
         Review.objects
         .values('book_id')
