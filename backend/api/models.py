@@ -32,7 +32,7 @@ class Publishers(models.Model):
         managed = False
         db_table = 'PUBLISHERS'
 
-
+//model sách 
 class Books(models.Model):
     book_id = models.AutoField(primary_key=True)
     isbn = models.CharField(unique=True, max_length=20)
